@@ -907,7 +907,6 @@ class EntityBrowser(QTreeWidget):
                 drag.setHotSpot(QPoint(50, 40))
 
             else:
-
                 svg_data = svg_library[entity].encode()
                 renderer = QSvgRenderer(QByteArray(svg_data))
                 pixmap = QPixmap(renderer.defaultSize())

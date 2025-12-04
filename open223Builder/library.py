@@ -1,4 +1,4 @@
-from open223Builder.ontology.namespaces import S223, QUDTU, QUDTQK
+from pype_schema import node, connection
 
 
 svg_library = {
