@@ -6,9 +6,7 @@ from PyQt5.QtWidgets import (
     QListWidgetItem
 )
 
-from open223Builder.library import (
-    connection_point_library
-)
+from open223Builder.library import medium_library, connection_point_library
 
 import open223Builder.enumerations as enums
 from open223Builder.app.items import *
@@ -138,12 +136,12 @@ class AddConnectionPointDialog(QDialog):
         self.position_y.setDecimals(2)
 
         self.medium = QComboBox()
-        for medium_key in medium_library.keys():
-            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
+        for cls, label in medium_library.items():
+            self.medium.addItem(label, userData=cls)
 
         self.type_uri = QComboBox()
-        for connection_point_key in connection_point_library.keys():
-            self.type_uri.addItem(to_label(connection_point_key), userData=str(connection_point_key))
+        for cls, label in connection_point_library.items():
+            self.type_uri.addItem(label, userData=cls)
 
         layout.addRow("Relative X Position (0-1):", self.position_x)
         layout.addRow("Relative Y Position (0-1):", self.position_y)

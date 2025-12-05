@@ -769,17 +769,11 @@ class ConnectionProperties(BasePropertyPanel):
     def update_single_connection(self, connection: Connection):
         self.instance_uri.setText(to_label(connection.inst_uri))
 
-        # Map the PyPES medium back to its S223 URI string for lookup in the QComboBox
-        s223_medium_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == connection.source.medium), None))
-        medium_index = self.medium.findData(s223_medium_for_lookup)
-        if medium_index != -1:
-            self.medium.setCurrentIndex(medium_index)
-
-        # Map the PyPES type_uri back to its S223 URI string for lookup in the QComboBox
-        s223_type_uri_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == connection.type_uri), None))
-        type_uri_index = self.type_uri.findData(s223_type_uri_for_lookup)
-        if type_uri_index != -1:
-            self.type_uri.setCurrentIndex(type_uri_index)
+        # Set the type combobox by matching the stored PyPES class object
+        index = self.type_uri.findData(item.type_uri)
+        self.type_uri.blockSignals(True)
+        self.type_uri.setCurrentIndex(index if index != -1 else 0)
+        self.type_uri.blockSignals(False)
 
         self.source_uri.setText(to_label(connection.source.inst_uri))
         self.target_uri.setText(to_label(connection.target.inst_uri))

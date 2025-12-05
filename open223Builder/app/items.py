@@ -23,7 +23,7 @@ from open223Builder.library import (
     port_library, svg_library, medium_library, connection_library, PYPES_S223_MAPPING,
     InletConnectionPoint, OutletConnectionPoint, BidirectionalConnectionPoint,
     FluidWater, WaterHotWater, FluidAir, WaterChilledWater,
-    Duct, Conductor,
+    Duct, Conductor, Pipe,
 )
 
 from open223Builder.app.commands import *
@@ -1146,9 +1146,9 @@ class ConnectionPoint(QGraphicsEllipseItem):
     default_size = 5
     hover_size = 7
     allowed_types = [
-        PYPES_S223_MAPPING[S223.InletConnectionPoint],
-        PYPES_S223_MAPPING[S223.OutletConnectionPoint],
-        PYPES_S223_MAPPING[S223.BidirectionalConnectionPoint],
+        InletConnectionPoint,
+        OutletConnectionPoint,
+        BidirectionalConnectionPoint,
     ]
 
     def __init__(
@@ -1380,10 +1380,11 @@ class ConnectionPoint(QGraphicsEllipseItem):
 
         scene = self.scene()
 
+        # TODO: type is hardcoded as Pipe, but should be choice of Pipe, Wire, Delivery, etc.
         connection = Connection(
             source=self,
             target=target_point,
-            type_uri=PYPES_S223_MAPPING[S223.Pipe], # Here
+            type_uri=Pipe,
         )
 
         command = AddConnectionCommand(connection, scene)

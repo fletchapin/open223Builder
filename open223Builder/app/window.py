@@ -15,6 +15,8 @@ from PyQt5.QtGui import (
     QPixmap, QDrag, QDragMoveEvent, QDragEnterEvent
 )
 
+from open223Builder.serializers import json_serializer, turtle_serializer
+
 from open223Builder.ontology.namespaces import (
     S223, VISU, BLDG, RDF, RDFS, QUDT, QUDTQK, PYPES
 )
@@ -47,6 +49,16 @@ def find_status_bar(item):
         return item.statusBar()
     elif isinstance(item, QWidget):
         return find_status_bar(item.parent())
+
+
+def save_scene_to_path(scene, filepath: str):
+    lower = filepath.lower()
+    if lower.endswith((".ttl", ".turtle")):
+        turtle_serializer.save(scene, filepath)
+    elif lower.endswith(".json"):
+        json_serializer.save(scene, filepath)
+    else:
+        raise ValueError("Only .json and .ttl files are accepted, but you entered the path {lower}")
 
 
 def save_to_turtle(scene: QGraphicsScene, filepath: str):

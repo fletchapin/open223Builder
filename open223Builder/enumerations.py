@@ -109,12 +109,9 @@ quantity_kinds: List[URIRef] = [
     QUDTQK.Energy,
     QUDTQK.EnergyPerUnitArea,
 
-    QUDTQK.Lenghth,
+    QUDTQK.Length,
     QUDTQK.Area,
     QUDTQK.Volume,
 ]
 
 
-if __name__ == '__main__':
-
-    print(QUDT.DeG_C)

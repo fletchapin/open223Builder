@@ -1,59 +1,50 @@
+from pype_schema import tag, node, connection
+
 from open223Builder.ontology.namespaces import S223, VISU, BLDG, QUDT, QUDTQK, QUDTU, PYPES
 from pype_schema import node, connection, tag, utils
 
-
+# --- PyPES-first registries and placeholder classes (injected by apply_pypes_patch.py) ---
 # Placeholder classes for S223 terms that don't have direct PyPES equivalents
-class Radiator(node.Node):
-    pass
-class Fan(node.Node):
-    pass
-class HeatingCoil(node.Node):
-    pass
-class CoolingCoil(node.Node):
-    pass
-class AirHeatExchanger(node.Node):
-    pass
-class Damper(node.Node):
-    pass
-class TerminalUnit(node.Node):
-    pass
-class SingleDuctTerminal(node.Node):
-    pass
-class AirHandlingUnit(node.Node):
-    pass
-class HeatPump(node.Node):
-    pass
-class Coil(node.Node):
-    pass
-class DomainSpace(node.Node): # DomainSpace will be a node for now
-    pass
-class PhysicalSpace(node.Node): # PhysicalSpace will be a node for now
-    pass
+class Radiator(node.Node): pass
+class Fan(node.Node): pass
+class HeatingCoil(node.Node): pass
+class CoolingCoil(node.Node): pass
+class AirHeatExchanger(node.Node): pass
+class Damper(node.Node): pass
+class TerminalUnit(node.Node): pass
+class SingleDuctTerminal(node.Node): pass
+class AirHandlingUnit(node.Node): pass
+class HeatPump(node.Node): pass
+class Coil(node.Node): pass
+class DomainSpace(node.Node): pass   # DomainSpace will be a node for now
+class PhysicalSpace(node.Node): pass  # PhysicalSpace will be a node for now
 
-# For connection points, we will use a special Tag for now
-class InletConnectionPoint(tag.Tag):
-    pass
-class OutletConnectionPoint(tag.Tag):
-    pass
-class BidirectionalConnectionPoint(tag.Tag):
-    pass
+class InletConnectionPoint(tag.Tag): pass
+class OutletConnectionPoint(tag.Tag): pass
+class BidirectionalConnectionPoint(tag.Tag): pass
 
-# For medium types, we will use a special Tag for now
-class FluidWater(tag.Tag):
-    pass
-class WaterHotWater(tag.Tag):
-    pass
-class FluidAir(tag.Tag):
-    pass
-class WaterChilledWater(tag.Tag):
-    pass
+class FluidWater(tag.Tag): pass
+class WaterHotWater(tag.Tag): pass
+class WaterChilledWater(tag.Tag): pass
+class FluidAir(tag.Tag): pass
 
 # For connection types, we will use pype_schema.connection classes
-class Duct(connection.Connection): # Duct is a connection
-    pass
-class Conductor(connection.Connection): # Conductor is a connection
-    pass
+class Duct(connection.Connection): pass  # Duct is a connection
+class Conductor(connection.Connection): pass  # Conductor is a connection
 
+connection_point_library = {
+    InletConnectionPoint: "Inlet",
+    OutletConnectionPoint: "Outlet",
+    BidirectionalConnectionPoint: "Bidirectional",
+}
+
+medium_library = {
+    FluidWater: "Fluid Water",
+    WaterHotWater: "Hot Water",
+    WaterChilledWater: "Chilled Water",
+    FluidAir: "Air",
+}
+# --- end injected block ---
 
 PYPES_S223_MAPPING = {
     S223.Junction: node.Junction,
