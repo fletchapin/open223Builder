@@ -6,6 +6,7 @@ from rdflib import RDF, RDFS, XSD
 from rdflib.namespace import DefinedNamespace
 
 S223 = Namespace("http://data.ashrae.org/standard223#")
+PYPES = Namespace("http://we3lab.github.io/pype-schema#") 
 VISU = Namespace("http://example.org/visualization#")
 BLDG = Namespace("http://example.org/building#")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
@@ -15,6 +16,7 @@ QUDTU = Namespace("http://qudt.org/vocab/unit/")
 
 __all__ = [
     "S223",
+    "PYPES", 
     "VISU",
     "BLDG",
     "RDF",
@@ -31,6 +33,7 @@ bindings = {
     RDFS: "rdfs",
     XSD: "xsd",
     S223: "s223",
+    PYPES: "pypes", 
     BLDG: "bldg",
     VISU: "visu",
     QUDT: "qudt",

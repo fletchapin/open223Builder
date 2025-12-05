@@ -1,7 +1,7 @@
 import math
 import rdflib
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from PyQt5.QtSvg import (
     QGraphicsSvgItem, QSvgRenderer,
@@ -9,17 +9,21 @@ from PyQt5.QtSvg import (
 from PyQt5.QtWidgets import (
     QGraphicsItem, QGraphicsEllipseItem, QGraphicsPathItem, QGraphicsView, QGraphicsLineItem, QStyle,
 )
+from PyQt5.QtCore import QPointF, QRectF, Qt, QTimer, QByteArray
 
 from PyQt5.QtGui import (
     QPen, QBrush, QColor, QPainter, QPainterPath, QFont
 )
 
 from open223Builder.ontology.namespaces import (
-    BLDG, short_uuid, to_label,
+    BLDG, short_uuid, to_label, PYPES,
 )
 
 from open223Builder.library import (
-    port_library, svg_library, medium_library, connection_library
+    port_library, svg_library, medium_library, connection_library, PYPES_S223_MAPPING,
+    InletConnectionPoint, OutletConnectionPoint, BidirectionalConnectionPoint,
+    FluidWater, WaterHotWater, FluidAir, WaterChilledWater,
+    Duct, Conductor,
 )
 
 from open223Builder.app.commands import *
@@ -131,7 +135,7 @@ class PhysicalSpace(QGraphicsItem):
         self.comment: str = str()
         self.enclosed_domain_spaces: set = set()
         self.contained_items: set[Union['PhysicalSpace', 'ConnectableItem']] = set()
-        self.role: rdflib.URIRef | None = None
+        self.role: str | None = None
 
         self.width = 200
         self.height = 150
@@ -421,19 +425,20 @@ class Property(QGraphicsItem):
     hover_size = 12
     offset_scale = 15
 
+    # Change allowed_types to use pype_schema.tag.Tag
     allowed_types = [
-        S223.Property, S223.ObservableProperty, S223.ActuatableProperty,
-        S223.EnumerableProperty, S223.QuantifiableProperty,
-        S223.QuantifiableObservableProperty, S223.QuantifiableActuatableProperty,
-        S223.EnumeratedObservableProperty, S223.EnumeratedActuatableProperty,
+        tag.Tag
     ]
 
     @classmethod
     def new(cls, parent, prop_data) -> 'Property':
 
+        # Updated property_type to use the mapped PyPES type
+        property_type = PYPES_S223_MAPPING.get(prop_data['property_type'], tag.Tag)
+
         property = Property(
             parent_item=parent,
-            property_type=prop_data['property_type'],
+            property_type=property_type,
             identifier=prop_data['identifier'],
         )
 
@@ -443,22 +448,23 @@ class Property(QGraphicsItem):
         except KeyError:
             raise KeyError(prop_data)
 
-        prop_data.aspect = prop_data.get('aspect')
-        prop_data.external_reference = prop_data.get('external_reference', "")
-        prop_data.internal_reference = prop_data.get('internal_reference')
+        # Prop_data attributes should be set directly on the property object
+        property.aspect = prop_data.get('aspect')
+        property.external_reference = prop_data.get('external_reference', "")
+        property.internal_reference = prop_data.get('internal_reference')
 
-        prop_data.unit = prop_data.get('unit')
-        prop_data.quantity_kind = prop_data.get('quantity_kind')
+        property.unit = prop_data.get('unit')
+        property.quantity_kind = prop_data.get('quantity_kind')
 
-        prop_data.value = prop_data.get('value', "")
-        prop_data.medium = prop_data.get('medium')
+        property.value = prop_data.get('value', "")
+        property.medium = prop_data.get('medium')
 
         return property
 
     def __init__(self,
 
                  parent_item: Union['ConnectableItem', 'ConnectionPoint'],
-                 property_type: rdflib.URIRef = None,
+                 property_type: type = None, # Changed type hint
                  inst_uri: rdflib.URIRef = None,
                  identifier: str = "P",
                  unit: Optional[rdflib.URIRef] = None,
@@ -466,12 +472,13 @@ class Property(QGraphicsItem):
                  ):
         super().__init__(parent=parent_item)
 
-        if property_type and property_type not in self.allowed_types:
-            print(f"Warning: Property type {property_type} not in allowed list. Defaulting to s223:Property.")
-            property_type = S223.Property
+        # Check if property_type is a valid class or a subclass of tag.Tag
+        if property_type and not (isinstance(property_type, type) and issubclass(property_type, tag.Tag)):
+            print(f"Warning: Property type {property_type} is not a valid Tag class. Defaulting to Tag.")
+            property_type = tag.Tag
 
         self.parent_item = parent_item
-        self._property_type = property_type or S223.Property
+        self._property_type: type = property_type or tag.Tag # Default to tag.Tag
         self.inst_uri = inst_uri if inst_uri else BLDG[short_uuid()]
         self._label: str = str()
         self._comment: str = str()
@@ -712,22 +719,25 @@ class Property(QGraphicsItem):
 
 class ConnectableItem(QGraphicsSvgItem):
 
-    def __init__(self, type_uri: rdflib.URIRef, inst_uri: rdflib.URIRef = None):
+    def __init__(self, type_uri: type, inst_uri: rdflib.URIRef = None): # Changed type hint
 
         self.properties: list[Property] = []
 
-        self.type_uri = type_uri
+        self.type_uri = type_uri # This will now be a PyPES class
         self.inst_uri = inst_uri if inst_uri else BLDG[short_uuid()]
         self.label: str = ""
         self.comment: str = ""
-        self.role: rdflib.URIRef | None = None
+        self.role: str | None = None # Changed type to str
         self.contained_items: set['ConnectableItem'] = set()
         self.physical_location_uri: Optional[rdflib.URIRef] = None
         self.observation_location_uri: Optional[rdflib.URIRef] = None
 
         super().__init__()
 
-        svg_data = svg_library.get(self.type_uri)
+        # Access svg_library with the S223 term, not the PyPES class
+        # since the keys in svg_library are S223 terms
+        s223_type_uri = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.type_uri), None)
+        svg_data = svg_library.get(s223_type_uri) 
         if not svg_data:
             print(f"Warning: No SVG data found for {self.type_uri}. Using fallback.")
 
@@ -852,7 +862,8 @@ class ConnectableItem(QGraphicsSvgItem):
     def add_item(self, item: 'ConnectableItem') -> bool:
         # Equipment (ConnectableItem) can only contain Equipment (ConnectableItem)
         # Exclude DomainSpace and PhysicalSpace from being contained by Equipment
-        if not isinstance(item, ConnectableItem) or isinstance(item, (DomainSpace, PhysicalSpace)):
+        if not isinstance(item, ConnectableItem) or \
+           isinstance(item, (PYPES_S223_MAPPING[S223.DomainSpace], PYPES_S223_MAPPING[S223.PhysicalSpace])):
             print(f"Error: Equipment '{self.label}' cannot contain item of type {type(item)}.")
             return False
 
@@ -956,11 +967,11 @@ class DomainSpace(ConnectableItem):
     COLOR_SELECTED = QColor(100, 180, 100)
     COLOR_BORDER = QColor(128, 200, 128)
 
-    def __init__(self, type_uri=S223.DomainSpace, inst_uri=None):
+    def __init__(self, type_uri=PYPES_S223_MAPPING[S223.DomainSpace], inst_uri=None): # Updated default type_uri
 
         super().__init__(type_uri=type_uri, inst_uri=inst_uri)
 
-        self.domain: rdflib.URIRef | None = None
+        self.domain: str | None = None # Changed type to str
 
         self.renderer = None
         self.width = 150
@@ -1135,16 +1146,16 @@ class ConnectionPoint(QGraphicsEllipseItem):
     default_size = 5
     hover_size = 7
     allowed_types = [
-        S223.InletConnectionPoint,
-        S223.OutletConnectionPoint,
-        S223.BidirectionalConnectionPoint,
+        PYPES_S223_MAPPING[S223.InletConnectionPoint],
+        PYPES_S223_MAPPING[S223.OutletConnectionPoint],
+        PYPES_S223_MAPPING[S223.BidirectionalConnectionPoint],
     ]
 
     def __init__(
             self,
             connectable: ConnectableItem,
-            medium: rdflib.URIRef,
-            type_uri: rdflib.URIRef,
+            medium: type, # Changed type hint
+            type_uri: type, # Changed type hint
             inst_uri: rdflib.URIRef = None,
             position: tuple = (0.5, 0.5),
     ):
@@ -1157,7 +1168,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
         self.properties: list[Property] = []
 
         self.label: str = ""
-        self.comment: str = ""
+        self.comment: str = str()
         self.relative_x = position[0]
         self.relative_y = position[1]
 
@@ -1189,20 +1200,21 @@ class ConnectionPoint(QGraphicsEllipseItem):
         return self._type_uri
 
     @type_uri.setter
-    def type_uri(self, type_uri: rdflib.URIRef):
+    def type_uri(self, type_uri: type): # Changed type hint
         if type_uri not in self.allowed_types:
             raise ValueError(f"Invalid connection point type: {type_uri}")
         self._type_uri = type_uri
 
     @property
-    def medium(self) -> rdflib.URIRef:
+    def medium(self) -> type: # Changed type hint
         return self._medium
 
     @medium.setter
-    def medium(self, medium: rdflib.URIRef):
+    def medium(self, medium: type): # Changed type hint
 
-        if not (isinstance(medium, rdflib.URIRef) or medium is None):
-            raise ValueError(f"Medium must be an URIRef not {type(medium)}")
+        # Check if medium is a type from PYPES_S223_MAPPING for medium types
+        if not (isinstance(medium, type) and medium in PYPES_S223_MAPPING.values() and issubclass(medium, tag.Tag)):
+            raise ValueError(f"Medium must be a PyPES Tag type from mapping, not {type(medium)}")
 
         self._medium = medium
         self.update_appearance()
@@ -1231,8 +1243,11 @@ class ConnectionPoint(QGraphicsEllipseItem):
         )
 
     def update_appearance(self):
+        # Retrieve the S223 medium from the PYPES_S223_MAPPING
+        s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.medium), None)
         try:
-            color = medium_library[self.medium].get('color')
+            # Use the S223 medium to get the color from medium_library
+            color = medium_library[s223_medium].get('color', None)
         except KeyError:
             print(f'Did not find medium {self.medium} in medium_library')
             color = (200, 200, 200)
@@ -1345,9 +1360,10 @@ class ConnectionPoint(QGraphicsEllipseItem):
         if target_point.medium != self.medium:
             return
 
-        source_bidirectional = str(self.type_uri) == str(S223.BidirectionalConnectionPoint)
-        target_bidirectional = str(target_point.type_uri) == str(S223.BidirectionalConnectionPoint)
-        source_not_target = str(self.type_uri) != str(target_point.type_uri)
+        # Use the placeholder classes for comparison
+        source_bidirectional = self.type_uri == BidirectionalConnectionPoint
+        target_bidirectional = target_point.type_uri == BidirectionalConnectionPoint
+        source_not_target = self.type_uri != target_point.type_uri
 
         if source_bidirectional and target_bidirectional:
             return True
@@ -1367,12 +1383,14 @@ class ConnectionPoint(QGraphicsEllipseItem):
         connection = Connection(
             source=self,
             target=target_point,
-            type_uri=S223.Pipe,
+            type_uri=PYPES_S223_MAPPING[S223.Pipe], # Here
         )
 
         command = AddConnectionCommand(connection, scene)
 
         push_command_to_scene(scene, command)
+
+
 
     def cancel_connection(self):
         if self.temp_connection:
@@ -1388,24 +1406,29 @@ class ConnectionPoint(QGraphicsEllipseItem):
 
 
 class Connection(QGraphicsPathItem):
-    allowed_types = [S223.Connection, S223.Pipe, S223.Duct, S223.Conductor]
+    allowed_types = [
+        PYPES_S223_MAPPING[S223.Connection],
+        PYPES_S223_MAPPING[S223.Pipe],
+        PYPES_S223_MAPPING[S223.Duct],
+        PYPES_S223_MAPPING[S223.Conductor],
+    ]
 
     def __init__(
             self,
             source: ConnectionPoint,
             target: ConnectionPoint,
-            type_uri: rdflib.URIRef = S223.Pipe,
+            type_uri: type = PYPES_S223_MAPPING[S223.Pipe], # Changed type hint and default
             inst_uri: str = None,
     ):
         super().__init__()
 
         if type_uri not in self.allowed_types:
-            raise ValueError(f"Connection type must be one of s223.Pipe, s223.Duct, s223.Conductor Not {type_uri}")
+            raise ValueError(f"Connection type must be one of {self.allowed_types}. Not {type_uri}")
 
         self.type_uri = type_uri
         self.inst_uri = inst_uri if inst_uri else BLDG[short_uuid()]
         self.label: str = ""
-        self.comment: str = ""
+        self.comment: str = str()
         self.source = source
         self.target = target
 
@@ -1432,13 +1455,18 @@ class Connection(QGraphicsPathItem):
         self.update_path()
 
     def update_path(self, width: Optional[int] = None):
+        # Retrieve the S223 medium from the PYPES_S223_MAPPING
+        s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.source.medium), None)
         try:
-            color = medium_library[self.source.medium].get('color', None)
+            # Use the S223 medium to get the color from medium_library
+            color = medium_library[s223_medium].get('color', None)
         except KeyError:
-            print(f'Unknown medium {self.source.medium} using default color')
+            print(f'Did not find medium {self.source.medium} in medium_library')
             color = (200, 200, 200)
         if width is None:
-            width = connection_library[self.type_uri].get('width')
+            # Retrieve the S223 type_uri from the PYPES_S223_MAPPING
+            s223_type_uri = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.type_uri), None)
+            width = connection_library[s223_type_uri].get('width')
 
         self.setPen(QPen(QColor(*color), width))
 
@@ -1452,19 +1480,22 @@ class Connection(QGraphicsPathItem):
         self.setPath(path)
 
     def hoverEnterEvent(self, event):
-        width = connection_library[self.type_uri].get('width') + 2
+        # Retrieve the S223 type_uri from the PYPES_S223_MAPPING
+        s223_type_uri = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.type_uri), None)
+        width = connection_library[s223_type_uri].get('width') + 2
         self.update_path(width)
 
     def hoverLeaveEvent(self, event):
         self.update_path()
 
     def _draw_arrow(self, path, source_pos, target_pos):
-        source_is_outlet = self.source.type_uri == S223.OutletConnectionPoint
-        source_is_inlet = self.source.type_uri == S223.InletConnectionPoint
-        source_is_bidirectional = self.source.type_uri == S223.BidirectionalConnectionPoint
-        target_is_outlet = self.target.type_uri == S223.OutletConnectionPoint
-        target_is_inlet = self.target.type_uri == S223.InletConnectionPoint
-        target_is_bidirectional = self.target.type_uri == S223.BidirectionalConnectionPoint
+        # Use the placeholder classes for comparison
+        source_is_outlet = self.source.type_uri == OutletConnectionPoint
+        source_is_inlet = self.source.type_uri == InletConnectionPoint
+        source_is_bidirectional = self.source.type_uri == BidirectionalConnectionPoint
+        target_is_outlet = self.target.type_uri == OutletConnectionPoint
+        target_is_inlet = self.target.type_uri == InletConnectionPoint
+        target_is_bidirectional = self.target.type_uri == BidirectionalConnectionPoint
 
         if source_is_outlet and target_is_inlet:
             draw_arrow_towards_target = True
@@ -1544,7 +1575,8 @@ class SystemItem(QGraphicsItem):
         for member in members:
             if not isinstance(member, ConnectableItem):
                 raise ValueError("Members must be ConnectableItem instances")
-            if isinstance(member, (DomainSpace, PhysicalSpace)):
+            # Use the placeholder classes for comparison
+            if isinstance(member, (PYPES_S223_MAPPING[S223.DomainSpace], PYPES_S223_MAPPING[S223.PhysicalSpace])):
                 raise ValueError("System members cannot be DomainSpace or PhysicalSpace")
 
         super().__init__()
@@ -1553,7 +1585,7 @@ class SystemItem(QGraphicsItem):
         self.label: str = to_label(self.inst_uri)
         self.comment: str = str()
         self.members: set[ConnectableItem] = set()
-        self.role: rdflib.URIRef | None = None
+        self.role: str | None = None
 
         self._bounding_rect = QRectF()
         self._setup()

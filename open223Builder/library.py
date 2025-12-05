@@ -1,5 +1,104 @@
-from pype_schema import node, connection
+from open223Builder.ontology.namespaces import S223, VISU, BLDG, QUDT, QUDTQK, QUDTU, PYPES
+from pype_schema import node, connection, tag, utils
 
+
+# Placeholder classes for S223 terms that don't have direct PyPES equivalents
+class Radiator(node.Node):
+    pass
+class Fan(node.Node):
+    pass
+class HeatingCoil(node.Node):
+    pass
+class CoolingCoil(node.Node):
+    pass
+class AirHeatExchanger(node.Node):
+    pass
+class Damper(node.Node):
+    pass
+class TerminalUnit(node.Node):
+    pass
+class SingleDuctTerminal(node.Node):
+    pass
+class AirHandlingUnit(node.Node):
+    pass
+class HeatPump(node.Node):
+    pass
+class Coil(node.Node):
+    pass
+class DomainSpace(node.Node): # DomainSpace will be a node for now
+    pass
+class PhysicalSpace(node.Node): # PhysicalSpace will be a node for now
+    pass
+
+# For connection points, we will use a special Tag for now
+class InletConnectionPoint(tag.Tag):
+    pass
+class OutletConnectionPoint(tag.Tag):
+    pass
+class BidirectionalConnectionPoint(tag.Tag):
+    pass
+
+# For medium types, we will use a special Tag for now
+class FluidWater(tag.Tag):
+    pass
+class WaterHotWater(tag.Tag):
+    pass
+class FluidAir(tag.Tag):
+    pass
+class WaterChilledWater(tag.Tag):
+    pass
+
+# For connection types, we will use pype_schema.connection classes
+class Duct(connection.Connection): # Duct is a connection
+    pass
+class Conductor(connection.Connection): # Conductor is a connection
+    pass
+
+
+PYPES_S223_MAPPING = {
+    S223.Junction: node.Junction,
+    S223.Valve: node.Valve,
+    S223.TwoWayValve: node.Valve, # Map to generic Valve
+    S223.ThreeWayValve: node.Valve, # Map to generic Valve
+    S223.Pump: node.Pump,
+    S223.Boiler: node.Boiler,
+    S223.Radiator: Radiator, # Placeholder
+    S223.Fan: Fan, # Placeholder
+    S223.HeatingCoil: HeatingCoil, # Placeholder
+    S223.CoolingCoil: CoolingCoil, # Placeholder
+    S223.AirHeatExchanger: AirHeatExchanger, # Placeholder
+    S223.Damper: Damper, # Placeholder
+    S223.Filter: node.Filtration,
+    S223.TerminalUnit: TerminalUnit, # Placeholder
+    S223.SingleDuctTerminal: SingleDuctTerminal, # Placeholder
+    S223.AirHandlingUnit: AirHandlingUnit, # Placeholder
+    S223.TemperatureSensor: tag.Tag, # Represent sensors as Tags
+    S223.PressureSensor: tag.Tag,
+    S223.OccupancySensor: tag.Tag,
+    S223.FlowSensor: tag.Tag,
+    S223.HumiditySensor: tag.Tag,
+    S223.HeatPump: HeatPump, # Placeholder
+    S223.Coil: Coil, # Placeholder
+    S223.DomainSpace: DomainSpace, # Placeholder
+    S223.PhysicalSpace: PhysicalSpace, # Placeholder
+
+    # Connection points
+    S223.InletConnectionPoint: InletConnectionPoint, # Placeholder for UI
+    S223.OutletConnectionPoint: OutletConnectionPoint, # Placeholder for UI
+    S223.BidirectionalConnectionPoint: BidirectionalConnectionPoint, # Placeholder for UI
+
+    # Medium types
+    S223['Fluid-Water']: FluidWater, # Placeholder for UI
+    S223['Water-HotWater']: WaterHotWater, # Placeholder for UI
+    S223['Fluid-Air']: FluidAir, # Placeholder for UI
+    S223['Water-ChilledWater']: WaterChilledWater, # Placeholder for UI
+
+    # Connection types
+    S223.Connection: connection.Connection,
+    S223.Pipe: connection.Pipe,
+    S223.Duct: Duct, # Placeholder
+    S223.Conductor: connection.Wire, # Map to generic Wire
+}
 
 svg_library = {
     S223.Junction: """
@@ -308,7 +407,7 @@ svg_library = {
             c37.064,4.324,75.362,17.798,107.983,38.524c4.316,2.738,13.799,3.029,15.232-9.302c2.847-24.354-0.108-48.724-5.403-72.334
             C451.884,182.157,432.191,166.345,412.281,169.754z"/>
         <path class="st0" d="M335.287,282.361c-5.603,16.881-16.464,31.38-30.627,41.56c14.779,34.254,22.267,74.165,20.635,112.789
-            c-0.217,5.095,4.28,13.455,15.667,8.54c22.504-9.729,42.142-24.48,59.93-40.872c17.008-15.667,20.853-40.637,7.96-56.168
+            c-0.217,5.095-4.28,13.455,15.667,8.54c22.504-9.729,42.142-24.48,59.93-40.872c17.008-15.667,20.853-40.637,7.96-56.168
             C387.511,322.508,362.904,298.717,335.287,282.361z"/>
         <path class="st0" d="M221.501,332.091c-22.267,29.93-53.075,56.367-87.348,74.264c-4.533,2.358-9.519,10.427,0.435,17.834
             c19.675,14.634,42.269,24.253,65.352,31.471c22.086,6.908,45.623-2.249,52.623-21.198c11.605-31.334,19.892-64.527,20.254-96.632
@@ -529,4 +628,3 @@ qudt_quantity_kinds = {
     "Power": QUDTQK.Power,
     # Add more
 }
-

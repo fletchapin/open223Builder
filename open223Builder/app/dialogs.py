@@ -24,29 +24,24 @@ class AddPropertyDialog(QDialog):
         layout = QFormLayout(self)
 
         self.property_type = QComboBox()
-
-        self.property_type.addItem("Property", userData=S223.Property)
-        self.property_type.addItem("Observable Property", userData=S223.ObservableProperty)
-        self.property_type.addItem("Actuatable Property", userData=S223.ActuatableProperty)
-        self.property_type.addItem("Enumerable Property", userData=S223.EnumerableProperty)
-        self.property_type.addItem("Quantifiable Property", userData=S223.QuantifiableProperty)
-        self.property_type.addItem("Quantifiable Observable", userData=S223.QuantifiableObservableProperty)
-        self.property_type.addItem("Quantifiable Actuatable", userData=S223.QuantifiableActuatableProperty)
-        self.property_type.addItem("Enumerated Observable", userData=S223.EnumeratedObservableProperty)
-        self.property_type.addItem("Enumerated Actuatable", userData=S223.EnumeratedActuatableProperty)
+        # Changed to use Property.allowed_types which is now tag.Tag
+        for p_type in Property.allowed_types:
+            self.property_type.addItem(p_type.__name__, userData=p_type.__name__)
 
         self.identifier = QLineEdit("P")
         self.identifier.setMaxLength(1)
 
         self.aspect = QComboBox()
         self.aspect.addItem("Select aspect", userData=None)
-        for aspect in enums.aspects:
-            self.aspect.addItem(to_label(aspect), userData=aspect)
+        # Placeholder aspects for now
+        pypes_aspects = ["Alarm", "CatalogNumber", "Deadband", "Delta", "Fault", "HighLimit", "LowLimit", "Manufacturer", "Maximum", "Minimum", "Model", "Nominal", "OperatingMode", "OperatingStatus", "Rated", "SerialNumber", "Setpoint", "Threshold"]
+        for aspect_str in pypes_aspects:
+            self.aspect.addItem(aspect_str, userData=aspect_str)
 
         self.medium = QComboBox()
-        from src.library import medium_library
-        for medium_uri in medium_library:
-            self.medium.addItem(to_label(medium_uri), userData=medium_uri)
+        # medium_library is already imported at the top of the file
+        for medium_key in medium_library.keys():
+            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
 
         self.unit = QComboBox()
         self.unit.addItem("Select Unit", userData=None)
@@ -89,17 +84,32 @@ class AddPropertyDialog(QDialog):
 
     def get_property_data(self):
         """Return dictionary with property configuration."""
+        # Retrieve the string name of the selected property type
+        selected_property_type_str = self.property_type.currentData()
+        # Find the actual PyPES class
+        pypes_property_type = globals().get(selected_property_type_str)
+
+        # Retrieve the selected aspect string
+        selected_aspect_str = self.aspect.currentData()
+
+        # Retrieve the selected medium S223 URI string
+        selected_medium_s223_uri_str = self.medium.currentData()
+        # Convert it back to URIRef to find the PyPES class
+        s223_medium_uri = rdflib.URIRef(selected_medium_s223_uri_str) if selected_medium_s223_uri_str else None
+        pypes_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
+
+
         return {
-            'property_type': self.property_type.currentData(),
+            'property_type': pypes_property_type,
             'identifier': self.identifier.text() or "P",
             'position_x': 0,
             'position_y': 0,
             'label': self.label_edit.text(),
             'comment': self.comment_edit.text(),
-            'aspect': self.aspect.currentData(),
-            'medium': self.medium.currentData(),
-            'unit': self.unit.currentData(),
-            'quantity_kind': self.quantity_kind.currentData(),
+            'aspect': selected_aspect_str,
+            'medium': pypes_medium,
+            'unit': self.unit.currentData(), # Already URIRef
+            'quantity_kind': self.quantity_kind.currentData(), # Already URIRef
             'external_reference': self.external_reference.text(),
             'internal_reference': self.internal_reference.text(),
             'value': self.value.text()
@@ -128,12 +138,12 @@ class AddConnectionPointDialog(QDialog):
         self.position_y.setDecimals(2)
 
         self.medium = QComboBox()
-        for medium_uri in medium_library:
-            self.medium.addItem(to_label(medium_uri), userData=medium_uri)
+        for medium_key in medium_library.keys():
+            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
 
         self.type_uri = QComboBox()
-        for connection in connection_point_library:
-            self.type_uri.addItem(to_label(connection), userData=connection)
+        for connection_point_key in connection_point_library.keys():
+            self.type_uri.addItem(to_label(connection_point_key), userData=str(connection_point_key))
 
         layout.addRow("Relative X Position (0-1):", self.position_x)
         layout.addRow("Relative Y Position (0-1):", self.position_y)
@@ -153,11 +163,23 @@ class AddConnectionPointDialog(QDialog):
         self.setLayout(layout)
 
     def get_connection_point_data(self):
+        # Retrieve the selected medium S223 URI string
+        selected_medium_s223_uri_str = self.medium.currentData()
+        # Convert it back to URIRef to find the PyPES class
+        s223_medium_uri = rdflib.URIRef(selected_medium_s223_uri_str) if selected_medium_s223_uri_str else None
+        pypes_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
+
+        # Retrieve the selected connection point type S223 URI string
+        selected_type_uri_s223_uri_str = self.type_uri.currentData()
+        # Convert it back to URIRef to find the PyPES class
+        s223_type_uri = rdflib.URIRef(selected_type_uri_s223_uri_str) if selected_type_uri_s223_uri_str else None
+        pypes_type_uri = PYPES_S223_MAPPING.get(s223_type_uri, None)
+
         return {
             'position_x': self.position_x.value(),
             'position_y': self.position_y.value(),
-            'medium': self.medium.currentData(),
-            'type_uri': self.type_uri.currentData()
+            'medium': pypes_medium,
+            'type_uri': pypes_type_uri
         }
 
 
@@ -379,13 +401,13 @@ class RelationshipDialog(QDialog):
             self.available_observation_locations_map.clear()
 
         # --- Populate Contains List ---
-        is_physical_container = isinstance(self.item, PhysicalSpace)
+        is_physical_container = isinstance(self.item, PYPES_S223_MAPPING[S223.PhysicalSpace])
         for scene_item in self.scene.items():
             if scene_item == self.item: continue  # Skip self
 
             valid_contain_candidate = False
             # Check for valid containment relationship type and prevent cycles
-            if is_physical_container and isinstance(scene_item, PhysicalSpace):
+            if is_physical_container and isinstance(scene_item, PYPES_S223_MAPPING[S223.PhysicalSpace]):
                 parent = self.item.parentItem();
                 is_ancestor = False
                 while parent:
@@ -394,7 +416,7 @@ class RelationshipDialog(QDialog):
                 if not is_ancestor: valid_contain_candidate = True
             elif not is_physical_container and isinstance(self.item, ConnectableItem) and \
                     isinstance(scene_item, ConnectableItem) and not isinstance(scene_item,
-                                                                               (DomainSpace, PhysicalSpace)):
+                                                                               (PYPES_S223_MAPPING[S223.DomainSpace], PYPES_S223_MAPPING[S223.PhysicalSpace])):
                 # Equipment containing Equipment (excluding Domain/Physical)
                 parent = self.item.parentItem();
                 is_ancestor = False
@@ -406,7 +428,9 @@ class RelationshipDialog(QDialog):
             if valid_contain_candidate:
                 # Ensure item has necessary attributes before creating label
                 if hasattr(scene_item, 'label') and hasattr(scene_item, 'type_uri') and hasattr(scene_item, 'inst_uri'):
-                    label = scene_item.label or f"{to_label(scene_item.type_uri)} ({to_label(scene_item.inst_uri)})"
+                    # Handle PyPES class names for type_uri
+                    type_display = scene_item.type_uri.__name__ if hasattr(scene_item.type_uri, '__name__') else to_label(scene_item.type_uri)
+                    label = scene_item.label or f"{type_display} ({to_label(scene_item.inst_uri)})"
                     list_item = QListWidgetItem(label)
                     list_item.setData(Qt.UserRole, scene_item)  # Store the actual item
 
@@ -420,10 +444,10 @@ class RelationshipDialog(QDialog):
                     print(f"Warning: Skipping item {scene_item} in contains list population - missing attributes.")
 
         # --- Populate Encloses List (if PhysicalSpace) ---
-        if isinstance(self.item, PhysicalSpace) and hasattr(self, 'available_domains_list'):
+        if isinstance(self.item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and hasattr(self, 'available_domains_list'):
             for scene_item in self.scene.items():
                 # Ensure item has necessary attributes
-                if isinstance(scene_item, DomainSpace) and hasattr(scene_item, 'label') and hasattr(scene_item,
+                if isinstance(scene_item, PYPES_S223_MAPPING[S223.DomainSpace]) and hasattr(scene_item, 'label') and hasattr(scene_item,
                                                                                                     'inst_uri'):
                     label = scene_item.label or f"Domain ({to_label(scene_item.inst_uri)})"
                     list_item = QListWidgetItem(label)
@@ -434,17 +458,17 @@ class RelationshipDialog(QDialog):
                     else:
                         self.available_domains_list.addItem(list_item)
                         self.available_domains_map[scene_item] = list_item
-                elif isinstance(scene_item, DomainSpace):
+                elif isinstance(scene_item, PYPES_S223_MAPPING[S223.DomainSpace]):
                     print(
                         f"Warning: Skipping DomainSpace {scene_item} in encloses list population - missing attributes.")
 
         # --- Populate Physical Location List (if Equipment) ---
-        is_equipment = isinstance(self.item, ConnectableItem) and not isinstance(self.item, DomainSpace)
+        is_equipment = isinstance(self.item, ConnectableItem) and not isinstance(self.item, PYPES_S223_MAPPING[S223.DomainSpace])
         if is_equipment and hasattr(self, 'available_physical_spaces_list'):
             current_location_item = None
             for scene_item in self.scene.items():
                 # Ensure item has necessary attributes
-                if isinstance(scene_item, PhysicalSpace) and hasattr(scene_item, 'label') and hasattr(scene_item,
+                if isinstance(scene_item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and hasattr(scene_item, 'label') and hasattr(scene_item,
                                                                                                       'inst_uri'):
                     label = scene_item.label or f"Space ({to_label(scene_item.inst_uri)})"
                     list_item = QListWidgetItem(label)
@@ -458,7 +482,7 @@ class RelationshipDialog(QDialog):
                         # We select based on the *current* selection in the dialog, not initial state
                         self.available_physical_spaces_list.setCurrentItem(
                             list_item)  # Use setCurrentItem for single selection
-                elif isinstance(scene_item, PhysicalSpace):
+                elif isinstance(scene_item, PYPES_S223_MAPPING[S223.PhysicalSpace]):
                     print(
                         f"Warning: Skipping PhysicalSpace {scene_item} in physical location list population - missing attributes.")
 
@@ -484,7 +508,8 @@ class RelationshipDialog(QDialog):
                     if hasattr(scene_item, 'label') and hasattr(scene_item, 'type_uri') and hasattr(scene_item,
                                                                                                     'inst_uri'):
                         # Create a descriptive label
-                        label = f"{scene_item.label or to_label(scene_item.inst_uri)}"
+                        label_text = scene_item.label or to_label(scene_item.inst_uri)
+                        type_display = scene_item.type_uri.__name__ if hasattr(scene_item.type_uri, '__name__') else to_label(scene_item.type_uri)
                         if isinstance(scene_item, ConnectableItem):
                             prefix = "Equip"
                         elif isinstance(scene_item, Connection):
@@ -493,7 +518,7 @@ class RelationshipDialog(QDialog):
                             prefix = "CP"
                         else:
                             prefix = "Item"  # Fallback
-                        full_label = f"[{prefix}] {to_label(scene_item.type_uri)}: {label}"
+                        full_label = f"[{prefix}] {type_display}: {label_text}"
 
                         list_item = QListWidgetItem(full_label)
                         list_item.setData(Qt.UserRole, scene_item)  # Store the actual graphics item
@@ -512,7 +537,8 @@ class RelationshipDialog(QDialog):
             # Update the current location label based on the *current* selection in the dialog
             if current_obs_loc_item:
                 # Recreate the label for consistency
-                label = f"{current_obs_loc_item.label or to_label(current_obs_loc_item.inst_uri)}"
+                label_text = current_obs_loc_item.label or to_label(current_obs_loc_item.inst_uri)
+                type_display = current_obs_loc_item.type_uri.__name__ if hasattr(current_obs_loc_item.type_uri, '__name__') else to_label(current_obs_loc_item.type_uri)
                 if isinstance(current_obs_loc_item, ConnectableItem):
                     prefix = "Equip"
                 elif isinstance(current_obs_loc_item, Connection):
@@ -521,7 +547,7 @@ class RelationshipDialog(QDialog):
                     prefix = "CP"
                 else:
                     prefix = "Item"
-                full_label = f"[{prefix}] {to_label(current_obs_loc_item.type_uri)}: {label}"
+                full_label = f"[{prefix}] {type_display}: {label_text}"
                 self.current_observation_location_label.setText(full_label)
             else:
                 self.current_observation_location_label.setText("None")
@@ -680,23 +706,23 @@ class RelationshipDialog(QDialog):
         added_items = current_contained_items - self.initial_contained_items
         for item_to_add in added_items:
             # Ensure the command is valid for the container/contained types
-            if (isinstance(self.item, PhysicalSpace) and isinstance(item_to_add, PhysicalSpace)) or \
+            if (isinstance(self.item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and isinstance(item_to_add, PYPES_S223_MAPPING[S223.PhysicalSpace])) or \
                     (isinstance(self.item, ConnectableItem) and isinstance(item_to_add,
                                                                            ConnectableItem) and not isinstance(
-                        self.item, DomainSpace) and not isinstance(item_to_add, DomainSpace)):
+                        self.item, PYPES_S223_MAPPING[S223.DomainSpace]) and not isinstance(item_to_add, PYPES_S223_MAPPING[S223.DomainSpace])):
                 commands.append(AddContainedItemCommand(self.item, item_to_add))
 
         # Find items removed (in initial set but not current)
         removed_items = self.initial_contained_items - current_contained_items
         for item_to_remove in removed_items:
-            if (isinstance(self.item, PhysicalSpace) and isinstance(item_to_remove, PhysicalSpace)) or \
+            if (isinstance(self.item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and isinstance(item_to_remove, PYPES_S223_MAPPING[S223.PhysicalSpace])) or \
                     (isinstance(self.item, ConnectableItem) and isinstance(item_to_remove,
                                                                            ConnectableItem) and not isinstance(
-                        self.item, DomainSpace) and not isinstance(item_to_remove, DomainSpace)):
+                        self.item, PYPES_S223_MAPPING[S223.DomainSpace]) and not isinstance(item_to_remove, PYPES_S223_MAPPING[S223.DomainSpace])):
                 commands.append(RemoveContainedItemCommand(self.item, item_to_remove))
 
         # 2. --- Encloses relationship (Only if item is PhysicalSpace) ---
-        if isinstance(self.item, PhysicalSpace) and hasattr(self, 'enclosed_domains_map'):
+        if isinstance(self.item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and hasattr(self, 'enclosed_domains_map'):
             # Determine the final set of enclosed domain space items from the map
             current_enclosed_items = set(self.enclosed_domains_map.keys())
             # Get their URIs
@@ -715,7 +741,7 @@ class RelationshipDialog(QDialog):
             # Find initial items to generate remove commands
             initial_enclosed_items = {
                 item for item in self.available_domains_map.keys() | self.enclosed_domains_map.keys()  # Check both maps
-                if isinstance(item, DomainSpace) and item.inst_uri in self.initial_enclosed_uris
+                if isinstance(item, PYPES_S223_MAPPING[S223.DomainSpace]) and item.inst_uri in self.initial_enclosed_uris
             }
             for domain_item in initial_enclosed_items:
                 if domain_item.inst_uri in removed_domain_uris:

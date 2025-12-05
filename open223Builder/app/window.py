@@ -16,10 +16,10 @@ from PyQt5.QtGui import (
 )
 
 from open223Builder.ontology.namespaces import (
-    S223, VISU, BLDG, RDF, RDFS, QUDT, QUDTQK
+    S223, VISU, BLDG, RDF, RDFS, QUDT, QUDTQK, PYPES
 )
 
-from open223Builder.library import connectable_library
+from open223Builder.library import connectable_library, PYPES_S223_MAPPING
 
 from open223Builder.app.dialogs import RelationshipDialog, AddPropertyDialog, AddConnectionPointDialog
 import open223Builder.app.widgets as properties
@@ -52,6 +52,7 @@ def find_status_bar(item):
 def save_to_turtle(scene: QGraphicsScene, filepath: str):
     g = rdflib.Graph()
     g.bind("s223", S223)
+    g.bind("pypes", PYPES) # Bind PYPES namespace
     g.bind("visu", VISU)
     g.bind("bldg", BLDG)
     g.bind("rdf", RDF)
@@ -68,10 +69,20 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
         if hasattr(item, "comment") and item.comment:
             g.add((item_uri, RDFS.comment, Literal(item.comment, datatype=rdflib.XSD.string)))
         if hasattr(item, "role") and item.role:
-            g.add((item_uri, S223.hasRole, item.role))
+            # If role is a string, serialize as a Literal
+            if isinstance(item.role, str):
+                g.add((item_uri, S223.hasRole, Literal(item.role, datatype=rdflib.XSD.string)))
+            else: # Otherwise, assume it's a URIRef or similar and add directly
+                g.add((item_uri, S223.hasRole, item.role))
         # Add type triple here as well for consistency
         if hasattr(item, "type_uri") and item.type_uri:
-            g.add((item_uri, RDF.type, item.type_uri))
+            # Map PyPES class back to S223 URI for serialization
+            s223_type = next((k for k, v in PYPES_S223_MAPPING.items() if v == item.type_uri), None)
+            if s223_type:
+                g.add((item_uri, RDF.type, s223_type))
+            else:
+                # If no mapping found, use the class name as a literal or a generic type
+                g.add((item_uri, RDF.type, Literal(item.type_uri.__name__))) # Fallback to class name
         elif isinstance(item, PhysicalSpace):
             g.add((item_uri, RDF.type, S223.PhysicalSpace))
         elif isinstance(item, SystemItem):
@@ -82,7 +93,13 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
         if prop_uri in processed_uris:
             return  # Already processed
 
-        g.add((prop_uri, RDF.type, prop.property_type))  # Ensure type is saved
+        # Map PyPES class back to S223 URI for serialization
+        s223_prop_type = next((k for k, v in PYPES_S223_MAPPING.items() if v == prop.property_type), None)
+        if s223_prop_type:
+            g.add((prop_uri, RDF.type, s223_prop_type))
+        else:
+            g.add((prop_uri, RDF.type, Literal(prop.property_type.__name__))) # Fallback to class name
+
         add_common_properties(prop_uri, prop)
 
         # Add Property-specific details
@@ -91,15 +108,20 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
         g.add((prop_uri, VISU.identifier, Literal(prop.identifier, datatype=rdflib.XSD.string)))
 
         if prop.aspect:
-            g.add((prop_uri, S223.hasAspect, prop.aspect))
+            g.add((prop_uri, S223.hasAspect, Literal(prop.aspect, datatype=rdflib.XSD.string)))
         if prop.external_reference:
             g.add((prop_uri, S223.hasExternalReference, Literal(prop.external_reference, datatype=rdflib.XSD.string)))
         if prop.internal_reference:
             g.add((prop_uri, S223.hasInternalReference, Literal(prop.internal_reference, datatype=rdflib.XSD.string)))
         if prop.value:
-            g.add((prop_uri, S223.hasValue, Literal(prop.value, datatype=rdflib.XSD.float)))
+            g.add((prop_uri, S223.hasValue, Literal(prop.value, datatype=rdflib.XSD.string))) # Value can be string
         if prop.medium:
-            g.add((prop_uri, S223.hasMedium, rdflib.URIRef(prop.medium)))
+            # Map PyPES medium class back to S223 URI for serialization
+            s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == prop.medium), None)
+            if s223_medium:
+                g.add((prop_uri, S223.hasMedium, s223_medium))
+            else:
+                g.add((prop_uri, S223.hasMedium, Literal(prop.medium.__name__))) # Fallback to class name
         if prop.unit:
             g.add((prop_uri, QUDT.hasUnit, rdflib.URIRef(prop.unit)))
         if prop.quantity_kind:
@@ -112,7 +134,12 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
         if cp_uri in processed_uris:
             return  # Already processed
 
-        g.add((cp_uri, RDF.type, cp.type_uri))  # Ensure type is saved
+        # Map PyPES class back to S223 URI for serialization
+        s223_cp_type = next((k for k, v in PYPES_S223_MAPPING.items() if v == cp.type_uri), None)
+        if s223_cp_type:
+            g.add((cp_uri, RDF.type, s223_cp_type))
+        else:
+            g.add((cp_uri, RDF.type, Literal(cp.type_uri.__name__))) # Fallback to class name
         add_common_properties(cp_uri, cp)  # Save label, comment, role if they exist
 
         # Link back to parent (ConnectableItem) - Essential relationship
@@ -121,7 +148,12 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
 
         # Add ConnectionPoint-specific details
         if cp.medium:
-            g.add((cp_uri, S223.hasMedium, cp.medium))
+            # Map PyPES medium class back to S223 URI for serialization
+            s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == cp.medium), None)
+            if s223_medium:
+                g.add((cp_uri, S223.hasMedium, s223_medium))
+            else:
+                g.add((cp_uri, S223.hasMedium, Literal(cp.medium.__name__))) # Fallback to class name
 
         g.add((cp_uri, VISU.relativeX, Literal(cp.relative_x, datatype=rdflib.XSD.float)))
         g.add((cp_uri, VISU.relativeY, Literal(cp.relative_y, datatype=rdflib.XSD.float)))
@@ -135,9 +167,6 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
                 save_property_details(prop)
 
         processed_uris.add(cp_uri)  # Mark as processed
-
-    # --- Main Saving Logic ---
-
     # Pass 1: Process ConnectableItems (Equipment and DomainSpaces)
     print("Saving: Processing ConnectableItems...")
     for item in scene.items():
@@ -150,7 +179,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
             g.add((item_uri, VISU.positionX, Literal(item.x(), datatype=rdflib.XSD.float)))
             g.add((item_uri, VISU.positionY, Literal(item.y(), datatype=rdflib.XSD.float)))
             g.add((item_uri, VISU.rotation, Literal(item.rotation(), datatype=rdflib.XSD.integer)))
-            if isinstance(item, DomainSpace):
+            if isinstance(item, PYPES_S223_MAPPING[S223.DomainSpace]):
                 g.add((item_uri, VISU.width, Literal(item.width, datatype=rdflib.XSD.float)))
                 g.add((item_uri, VISU.height, Literal(item.height, datatype=rdflib.XSD.float)))
 
@@ -158,7 +187,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
             if hasattr(item, "contained_items"):
                 # Ensure contained items are ConnectableItems (not Domain/Physical)
                 valid_contained = [ci for ci in item.contained_items if
-                                   isinstance(ci, ConnectableItem) and not isinstance(ci, (DomainSpace, PhysicalSpace))]
+                                   isinstance(ci, ConnectableItem) and not isinstance(ci, (PYPES_S223_MAPPING[S223.DomainSpace], PYPES_S223_MAPPING[S223.PhysicalSpace]))]
                 for contained_item in valid_contained:
                     g.add((item_uri, S223.contains, contained_item.inst_uri))
 
@@ -175,7 +204,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
                 for prop in item.properties:
                     # Add the link from ConnectableItem to Property
                     g.add((item_uri, S223.hasProperty, prop.inst_uri))
-                    # Save the property details (checks processed_uris internally)
+                    # Save the property details (will check processed_uris internally)
                     save_property_details(prop)
 
             processed_uris.add(item_uri)
@@ -198,7 +227,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
     # Pass 2: Process PhysicalSpaces
     print("Saving: Processing PhysicalSpaces...")
     for item in scene.items():
-        if isinstance(item, PhysicalSpace) and item.inst_uri not in processed_uris:
+        if isinstance(item, PYPES_S223_MAPPING[S223.PhysicalSpace]) and item.inst_uri not in processed_uris:
             item_uri = item.inst_uri
             print(f"  Saving PhysicalSpace: {item_uri}")
             add_common_properties(item_uri, item)  # Adds RDF.type, label, comment, role
@@ -212,7 +241,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
             # Add link to contained items (PhysicalSpace -> PhysicalSpace)
             if hasattr(item, "contained_items"):
                 # Ensure contained items are PhysicalSpaces
-                valid_contained = [ci for ci in item.contained_items if isinstance(ci, PhysicalSpace)]
+                valid_contained = [ci for ci in item.contained_items if isinstance(ci, PYPES_S223_MAPPING[S223.PhysicalSpace])]
                 for contained_item in valid_contained:
                     g.add((item_uri, S223.contains, contained_item.inst_uri))
 
@@ -255,8 +284,8 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
             # Add links to members
             if hasattr(item, "members"):
                 for member in item.members:
-                    # Ensure member is a valid type before linking
-                    if isinstance(member, ConnectableItem) and not isinstance(member, (DomainSpace, PhysicalSpace)):
+                    # Ensure member is a ConnectableItem and NOT Domain/PhysicalSpace
+                    if isinstance(member, ConnectableItem) and not isinstance(member, (PYPES_S223_MAPPING[S223.DomainSpace], PYPES_S223_MAPPING[S223.PhysicalSpace])):
                         g.add((sys_uri, S223.hasMember, member.inst_uri))
                     else:
                         print(
@@ -333,9 +362,9 @@ def load_from_turtle(scene: QGraphicsScene, filepath: str):
         components_created = 0
 
         # --- Pass 1: Create Physical Spaces ---
-        for subject, p, o in g.triples((None, RDF.type, S223.PhysicalSpace)):
+        for subject, p, o in g.triples((None, RDF.type, S223.PhysicalSpace)): # Still using S223 for RDF.type in triples
             print(f"Creating PhysicalSpace: {subject}")
-            physical_space = PhysicalSpace(inst_uri=subject)
+            physical_space = PhysicalSpace(inst_uri=subject, type_uri=PYPES_S223_MAPPING[S223.PhysicalSpace])
             x = g.value(subject, VISU.positionX)
             y = g.value(subject, VISU.positionY)
             width = g.value(subject, VISU.width)
@@ -348,26 +377,30 @@ def load_from_turtle(scene: QGraphicsScene, filepath: str):
             role = g.value(subject, S223.hasRole)
             if label: physical_space.label = str(label)
             if comment: physical_space.comment = str(comment)
-            if role: physical_space.role = role
+            if role: physical_space.role = str(role) # Role is string
             scene.addItem(physical_space)
             created_items[subject] = physical_space
             components_created += 1
 
         # --- Pass 1b: Create Connectable Items (Equipment & Domain Spaces) ---
         for subject, p, o in g.triples((None, RDF.type, None)):
-            item_type = o
+            item_type_uri = o # Get the URI from the graph
+            # Try to map the S223 URI back to a PyPES class
+            item_type_pypes = PYPES_S223_MAPPING.get(item_type_uri, None)
+
             # Skip if already created, or if it's a type handled in later passes
             if (subject in created_items or
-                    item_type == S223.PhysicalSpace or  # Already handled
-                    item_type in ConnectionPoint.allowed_types or  # Handled in Pass 3
-                    item_type in Connection.allowed_types or  # Handled in Pass 4
-                    item_type == S223.System or  # Handled in Pass 7 (NEW)
-                    item_type in Property.allowed_types):  # Handled in Pass 6
+                    item_type_uri == S223.PhysicalSpace or  # Already handled
+                    item_type_uri in ConnectionPoint.allowed_types or  # Handled in Pass 3
+                    item_type_uri in Connection.allowed_types or  # Handled in Pass 4
+                    item_type_uri == S223.System or  # Handled in Pass 7 (NEW)
+                    item_type_uri in Property.allowed_types):  # Handled in Pass 6
                 continue
 
-            if item_type == S223.DomainSpace:
+            connectable = None
+            if item_type_uri == S223.DomainSpace:
                 print(f"Creating DomainSpace: {subject}")
-                connectable = DomainSpace(inst_uri=subject)
+                connectable = DomainSpace(inst_uri=subject, type_uri=PYPES_S223_MAPPING[S223.DomainSpace])
                 domain_spaces[subject] = connectable  # Keep track specifically
                 width = g.value(subject, VISU.width)
                 height = g.value(subject, VISU.height)
@@ -375,9 +408,11 @@ def load_from_turtle(scene: QGraphicsScene, filepath: str):
                 if height: connectable.height = float(height)
                 # DomainSpace doesn't load default CPs
 
-            elif item_type in svg_library:  # Assume other connectables are equipment with SVGs
-                print(f"Creating ConnectableItem (Equipment): {subject} of type {item_type}")
-                connectable = ConnectableItem(type_uri=item_type, inst_uri=subject)
+            # Check if the item_type_uri is a key in svg_library (which uses S223 URIs)
+            elif item_type_uri in svg_library:  # Assume other connectables are equipment with SVGs
+                print(f"Creating ConnectableItem (Equipment): {subject} of type {item_type_uri}")
+                # Create ConnectableItem with the mapped PyPES type
+                connectable = ConnectableItem(type_uri=item_type_pypes, inst_uri=subject)
                 # Load default CPs first, then remove them before adding saved ones
                 default_cps = connectable.connection_points.copy()
                 for cp in default_cps:
@@ -385,7 +420,7 @@ def load_from_turtle(scene: QGraphicsScene, filepath: str):
                     connectable.connection_points.remove(cp)
                     # We don't add default CPs to the scene initially when loading
             else:
-                print(f"Skipping unknown item type: {item_type} for subject {subject}")
+                print(f"Skipping unknown item type: {item_type_uri} for subject {subject}")
                 continue  # Skip to next triple if type is not recognized
 
             # --- Common setup for created ConnectableItem ---
@@ -417,7 +452,7 @@ def load_from_turtle(scene: QGraphicsScene, filepath: str):
                 if comment:
                     connectable.comment = str(comment)
                 if role:
-                    connectable.role = role
+                    connectable.role = str(role) # Role is string
 
                 scene.addItem(connectable)
                 created_items[subject] = connectable

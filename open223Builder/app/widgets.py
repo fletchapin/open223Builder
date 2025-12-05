@@ -3,9 +3,10 @@ from PyQt5.QtWidgets import (
 )
 
 import open223Builder.enumerations as enums
-from open223Builder.library import connection_point_library
+from open223Builder.library import connection_point_library, PYPES_S223_MAPPING, medium_library
 from open223Builder.app.dialogs import RelationshipDialog, AddPropertyDialog, AddConnectionPointDialog
 from open223Builder.app.items import *
+from open223Builder.ontology.namespaces import PYPES, to_label
 
 
 class BasePropertyPanel(QFormLayout):
@@ -212,10 +213,12 @@ class ConnectableProperties(BasePropertyPanel):
     def _setup_role_selector(self):
         self.role = QComboBox()
         self.role.addItem("Please select role", userData=None)
-        for role_uri in enums.roles:
-            self.role.addItem(to_label(role_uri), userData=str(role_uri))
+        # Placeholder roles, these need to be properly mapped to PyPES concepts later
+        pypes_roles = ["HVAC", "Plumbing", "Electrical", "Supply", "Return", "Exhaust"]
+        for role_str in pypes_roles:
+            self.role.addItem(role_str, userData=role_str)
         self.role.currentIndexChanged.connect(self._on_role_changed)
-        self.addRow(QLabel("<b>s223.hasRole:</b>"), self.role)
+        self.addRow(QLabel("<b>s223.hasRole:</b>"), self.role) # Label text will be updated later
 
     def _setup_rotation_controls(self):
         self.rotation = QLineEdit()
@@ -288,13 +291,13 @@ class ConnectableProperties(BasePropertyPanel):
             return
 
         role_str = self.role.itemData(index)
-        role_uri = None if role_str is None else rdflib.URIRef(role_str)
+        new_role = None if role_str is None else role_str # Changed to string
 
-        if role_uri is None:
+        if new_role is None:
             return
 
         for item in self.selected_items:
-            item.role = role_uri
+            item.role = new_role
 
 
 class PropertyProperties(BasePropertyPanel):
@@ -307,8 +310,10 @@ class PropertyProperties(BasePropertyPanel):
 
         self.property_type = QComboBox()
 
+        # Iterate over Property.allowed_types which now contains tag.Tag
         for p_type in Property.allowed_types:
-            self.property_type.addItem(to_label(p_type), userData=str(p_type))
+            # Use class name for display and user data
+            self.property_type.addItem(p_type.__name__, userData=p_type.__name__)
         self.property_type.currentIndexChanged.connect(self.on_property_type_changed)
         self.addRow(QLabel("<b>Property Type:</b>"), self.property_type)
 
@@ -319,15 +324,19 @@ class PropertyProperties(BasePropertyPanel):
 
         self.aspect = QComboBox()
         self.aspect.addItem("Select aspect", userData=None)
-        for aspect_uri in enums.aspects:
-            self.aspect.addItem(to_label(aspect_uri), userData=str(aspect_uri))
+        # Placeholder aspects for now
+        pypes_aspects = ["Alarm", "CatalogNumber", "Deadband", "Delta", "Fault", "HighLimit", "LowLimit", "Manufacturer", "Maximum", "Minimum", "Model", "Nominal", "OperatingMode", "OperatingStatus", "Rated", "SerialNumber", "Setpoint", "Threshold"]
+        for aspect_str in pypes_aspects:
+            self.aspect.addItem(aspect_str, userData=aspect_str)
         self.aspect.currentIndexChanged.connect(self.on_aspect_changed)
         self.addRow(QLabel("<b>Aspect:</b>"), self.aspect)
 
         self.medium = QComboBox()
         self.medium.addItem("Select medium", userData=None)
-        for medium_uri in medium_library:
-            self.medium.addItem(to_label(medium_uri), userData=str(medium_uri))
+        # Iterate over medium_library keys (S223 URIRefs) and use their mapped PyPES names
+        # The userData will be the S223 URIRef string, so we can map it back in on_medium_changed
+        for medium_key in medium_library.keys():
+            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>Medium:</b>"), self.medium)
 
@@ -476,7 +485,8 @@ class PropertyProperties(BasePropertyPanel):
             return
         new_unit = self.unit.itemData(index)
         scene = self.selected_items[0].scene()
-        command = ChangeAttributeCommand(self.selected_items, 'unit', rdflib.URIRef(new_unit))
+        # new_unit is already a string representation of URIRef, so no conversion needed
+        command = ChangeAttributeCommand(self.selected_items, 'unit', new_unit)
         push_command_to_scene(scene, command)
 
     def on_quantity_kind_changed(self, index):
@@ -484,19 +494,23 @@ class PropertyProperties(BasePropertyPanel):
             return
         new_qk = self.quantity_kind.itemData(index)
         scene = self.selected_items[0].scene()
-        command = ChangeAttributeCommand(self.selected_items, 'quantity_kind', rdflib.URIRef(new_qk))
+        # new_qk is already a string representation of URIRef, so no conversion needed
+        command = ChangeAttributeCommand(self.selected_items, 'quantity_kind', new_qk)
         push_command_to_scene(scene, command)
 
     def on_property_type_changed(self, index):
 
         if not self.selected_items:
             return
-        new_type = self.property_type.itemData(index)
+        new_type_str = self.property_type.itemData(index)
 
-        if new_type is None:
+        if new_type_str is None:
             return
         scene = self.selected_items[0].scene()
-        command = ChangeAttributeCommand(self.selected_items, 'property_type', rdflib.URIRef(new_type))
+        # Find the PyPES class from the string name
+        new_type = globals().get(new_type_str) # Assuming the classes are in globals
+
+        command = ChangeAttributeCommand(self.selected_items, 'property_type', new_type)
         push_command_to_scene(scene, command)
 
     def on_identifier_changed(self):
@@ -520,8 +534,13 @@ class PropertyProperties(BasePropertyPanel):
 
     def on_medium_changed(self, index):
         if not self.selected_items: return
-        new_medium = self.medium.itemData(index)
+        medium_key_str = self.medium.itemData(index)
         scene = self.selected_items[0].scene()
+        # Find the PyPES medium class from the S223 medium key string
+        # We need to convert the string back to URIRef to use as a key in PYPES_S223_MAPPING
+        s223_medium_uri = rdflib.URIRef(medium_key_str) if medium_key_str else None
+        new_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
+
         command = ChangeAttributeCommand(self.selected_items, 'medium', new_medium)
         push_command_to_scene(scene, command)
 
@@ -554,7 +573,7 @@ class DomainSpaceProperties(BasePropertyPanel):
         self.instance_uri = QLabel("No domain space selected")
         self.addRow(QLabel("<b>instance:</b>"), self.instance_uri)
 
-        self.type_uri = QLabel("s223:DomainSpace")
+        self.type_uri = QLabel(to_label(PYPES_S223_MAPPING[S223.DomainSpace]))
         self.addRow(QLabel("<b>rdfs:type:</b>"), self.type_uri)
 
         self.width_spin = QDoubleSpinBox()
@@ -573,8 +592,10 @@ class DomainSpaceProperties(BasePropertyPanel):
 
         self.domain = QComboBox()
         self.domain.addItem("Please select domain", userData=None)
-        for domain_uri in enums.domains:
-            self.domain.addItem(to_label(domain_uri), userData=str(domain_uri))
+        # Placeholder domains for now
+        pypes_domains = ["Lighting", "Electrical", "HVAC", "Occupancy", "Plumbing", "Refrigeration", "FireProtection"]
+        for domain_str in pypes_domains:
+            self.domain.addItem(domain_str, userData=domain_str)
         self.domain.currentIndexChanged.connect(self._on_domain_changed)
         self.addRow(QLabel("<b>s223.hasDomain:</b>"), self.domain)
 
@@ -663,7 +684,7 @@ class DomainSpaceProperties(BasePropertyPanel):
             return
 
         domain_str = self.domain.itemData(index)
-        new_domain = rdflib.URIRef(domain_str) if domain_str else None
+        new_domain = domain_str if domain_str else None # Changed to use string directly
 
         scene = self.selected_items[0].scene()
         if scene:
@@ -679,14 +700,14 @@ class ConnectionProperties(BasePropertyPanel):
         self.addRow(QLabel("<b>instance:</b>"), self.instance_uri)
 
         self.type_uri = QComboBox()
-        for connection_uri in connection_library:
+        for connection_uri in connection_library.keys(): # Iterate keys
             self.type_uri.addItem(to_label(connection_uri), userData=str(connection_uri))
         self.type_uri.currentIndexChanged.connect(self.on_type_uri_changed)
         self.addRow(QLabel("<b>rdfs.type:</b>"), self.type_uri)
 
         self.medium = QComboBox()
-        for medium_uri in medium_library:
-            self.medium.addItem(to_label(medium_uri), userData=str(medium_uri))
+        for medium_key in medium_library.keys(): # Iterate keys
+            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>s223.hasMedium:</b>"), self.medium)
 
@@ -719,7 +740,9 @@ class ConnectionProperties(BasePropertyPanel):
         if new_type_uri_str is None:
             return
 
-        new_type_uri = rdflib.URIRef(new_type_uri_str)
+        # Convert the string back to URIRef to lookup in PYPES_S223_MAPPING
+        s223_type_uri = rdflib.URIRef(new_type_uri_str)
+        new_type_uri = PYPES_S223_MAPPING.get(s223_type_uri, None)
 
         scene = self.selected_items[0].scene()
         if scene and hasattr(scene.views()[0], 'command_history'):
@@ -734,7 +757,9 @@ class ConnectionProperties(BasePropertyPanel):
         if new_medium_str is None:
             return
 
-        new_medium = rdflib.URIRef(new_medium_str)
+        # Convert the string back to URIRef to lookup in PYPES_S223_MAPPING
+        s223_medium_uri = rdflib.URIRef(new_medium_str)
+        new_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
 
         scene = self.selected_items[0].scene()
         if scene and hasattr(scene.views()[0], 'command_history'):
@@ -744,11 +769,15 @@ class ConnectionProperties(BasePropertyPanel):
     def update_single_connection(self, connection: Connection):
         self.instance_uri.setText(to_label(connection.inst_uri))
 
-        medium_index = self.medium.findData(str(connection.source.medium))
+        # Map the PyPES medium back to its S223 URI string for lookup in the QComboBox
+        s223_medium_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == connection.source.medium), None))
+        medium_index = self.medium.findData(s223_medium_for_lookup)
         if medium_index != -1:
             self.medium.setCurrentIndex(medium_index)
 
-        type_uri_index = self.type_uri.findData(str(connection.type_uri))
+        # Map the PyPES type_uri back to its S223 URI string for lookup in the QComboBox
+        s223_type_uri_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == connection.type_uri), None))
+        type_uri_index = self.type_uri.findData(s223_type_uri_for_lookup)
         if type_uri_index != -1:
             self.type_uri.setCurrentIndex(type_uri_index)
 
@@ -778,8 +807,8 @@ class ConnectionPointProperties(BasePropertyPanel):
         self.addRow(QLabel("<b>instance:</b>"), self.instance_uri)
 
         self.type_uri = QComboBox()
-        for connection in connection_point_library:
-            self.type_uri.addItem(to_label(connection), userData=str(connection))
+        for connection_uri in connection_point_library.keys():
+            self.type_uri.addItem(to_label(connection_uri), userData=str(connection_uri))
         self.type_uri.currentIndexChanged.connect(self.on_type_uri_changed)
         self.addRow(QLabel("<b>rdfs.type:</b>"), self.type_uri)
 
@@ -787,8 +816,8 @@ class ConnectionPointProperties(BasePropertyPanel):
         self.addRow(QLabel("<b>s223.connectsThrough:</b>"), self.connected_to)
 
         self.medium = QComboBox()
-        for medium_uri in medium_library:
-            self.medium.addItem(to_label(medium_uri), userData=str(medium_uri))
+        for medium_key in medium_library.keys():
+            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>s223.hasMedium:</b>"), self.medium)
 
@@ -839,7 +868,9 @@ class ConnectionPointProperties(BasePropertyPanel):
         self.label.setText(item.label)
         self.comment.setText(item.comment)
 
-        index = self.type_uri.findData(str(item.type_uri))
+        # Map the PyPES type_uri back to its S223 URI string for lookup in the QComboBox
+        s223_type_uri_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == item.type_uri), None))
+        index = self.type_uri.findData(s223_type_uri_for_lookup)
         self.type_uri.blockSignals(True)
         self.type_uri.setCurrentIndex(index if index != -1 else 0)
         self.type_uri.blockSignals(False)
@@ -848,7 +879,9 @@ class ConnectionPointProperties(BasePropertyPanel):
         if item.medium is None:
             self.medium.setCurrentIndex(0)
         else:
-            index = self.medium.findData(str(item.medium))
+            # Map the PyPES medium back to its S223 URI string for lookup in the QComboBox
+            s223_medium_for_lookup = str(next((k for k, v in PYPES_S223_MAPPING.items() if v == item.medium), None))
+            index = self.medium.findData(s223_medium_for_lookup)
             self.medium.setCurrentIndex(index if index != -1 else 0)
         self.medium.blockSignals(False)
 
@@ -927,7 +960,9 @@ class ConnectionPointProperties(BasePropertyPanel):
         if type_uri_str is None:
             return
 
-        type_uri = rdflib.URIRef(type_uri_str)
+        # Convert the string back to URIRef to lookup in PYPES_S223_MAPPING
+        s223_type_uri = rdflib.URIRef(type_uri_str)
+        new_type_uri = PYPES_S223_MAPPING.get(s223_type_uri, None)
 
         scene = self.selected_items[0].scene()
         if scene and hasattr(scene.views()[0], 'command_history'):
@@ -945,7 +980,7 @@ class ConnectionPointProperties(BasePropertyPanel):
                     for i, point in enumerate(self.points):
                         point.type_uri = self.old_type_uris[i]
 
-            command = ChangeConnectionPointTypeCommand(self.selected_items, type_uri)
+            command = ChangeConnectionPointTypeCommand(self.selected_items, new_type_uri)
             push_command_to_scene(scene, command)
 
     def on_medium_changed(self, index):
@@ -956,7 +991,9 @@ class ConnectionPointProperties(BasePropertyPanel):
         if medium_str is None:
             return
 
-        medium = rdflib.URIRef(medium_str)
+        # Convert the string back to URIRef to lookup in PYPES_S223_MAPPING
+        s223_medium_uri = rdflib.URIRef(medium_str)
+        new_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
 
         scene = self.selected_items[0].scene()
         if scene and hasattr(scene.views()[0], 'command_history'):
@@ -974,7 +1011,7 @@ class ConnectionPointProperties(BasePropertyPanel):
                     for i, point in enumerate(self.points):
                         point.medium = self.old_media[i]
 
-            command = ChangeConnectionPointMediumCommand(self.selected_items, medium)
+            command = ChangeConnectionPointMediumCommand(self.selected_items, new_medium)
             push_command_to_scene(scene, command)
 
     def on_position_changed(self):
@@ -1012,7 +1049,7 @@ class SystemProperties(BasePropertyPanel):
         self.instance_uri = QLabel("No system selected")
         self.addRow(QLabel("<b>instance:</b>"), self.instance_uri)
 
-        self.type_uri = QLabel("s223:System")
+        self.type_uri = QLabel("System") # Changed to a generic string, as there's no direct PyPES.System class yet
         self.addRow(QLabel("<b>rdfs:type:</b>"), self.type_uri)
 
         self.member_count = QLabel("0")
@@ -1020,8 +1057,10 @@ class SystemProperties(BasePropertyPanel):
 
         self.role = QComboBox()
         self.role.addItem("Please select role", userData=None)
-        for role_uri in enums.roles:
-            self.role.addItem(to_label(role_uri), userData=str(role_uri))
+        # Placeholder roles, these need to be properly mapped to PyPES concepts later
+        pypes_roles = ["HVAC", "Plumbing", "Electrical", "Supply", "Return", "Exhaust"]
+        for role_str in pypes_roles:
+            self.role.addItem(role_str, userData=role_str)
         self.role.currentIndexChanged.connect(self._on_role_changed)
         self.addRow(QLabel("<b>s223.hasDomain:</b>"), self.role)
 
@@ -1070,13 +1109,13 @@ class SystemProperties(BasePropertyPanel):
             return
 
         role_str = self.role.itemData(index)
-        role_uri = None if role_str is None else rdflib.URIRef(role_str)
+        new_role = role_str if role_str else None # Changed to use string directly
 
-        if role_uri is None:
+        if new_role is None:
             return
 
         for item in self.selected_items:
-            item.role = role_uri
+            item.role = new_role
 
 
 class PhysicalSpaceProperties(BasePropertyPanel):
@@ -1086,7 +1125,7 @@ class PhysicalSpaceProperties(BasePropertyPanel):
         self.instance_uri = QLabel("No physical space selected")
         self.addRow(QLabel("<b>instance:</b>"), self.instance_uri)
 
-        self.type_uri = QLabel("s223:PhysicalSpace")
+        self.type_uri = QLabel(to_label(PYPES_S223_MAPPING[S223.PhysicalSpace]))
         self.addRow(QLabel("<b>rdfs:type:</b>"), self.type_uri)
 
         self.width_spin = QDoubleSpinBox()
@@ -1111,8 +1150,10 @@ class PhysicalSpaceProperties(BasePropertyPanel):
 
         self.role = QComboBox()
         self.role.addItem("Please select role", userData=None)
-        for role_uri in enums.roles:
-            self.role.addItem(to_label(role_uri), userData=str(role_uri))
+        # Placeholder roles, these need to be properly mapped to PyPES concepts later
+        pypes_roles = ["HVAC", "Plumbing", "Electrical", "Supply", "Return", "Exhaust"]
+        for role_str in pypes_roles:
+            self.role.addItem(role_str, userData=role_str)
         self.role.currentIndexChanged.connect(self._on_role_changed)
         self.addRow(QLabel("<b>s223.hasRole:</b>"), self.role)
 
@@ -1215,7 +1256,7 @@ class PhysicalSpaceProperties(BasePropertyPanel):
             return
 
         role_str = self.role.itemData(index)
-        new_role = rdflib.URIRef(role_str) if role_str else None
+        new_role = role_str if role_str else None # Changed to use string directly
 
         scene = self.selected_items[0].scene()
         if scene:
