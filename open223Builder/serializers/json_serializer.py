@@ -1,11 +1,11 @@
 import json
 from typing import Any, Dict
-from registry import class_to_id
+from ..registry import class_to_id
 from PyQt5.QtWidgets import QGraphicsScene
 from PyQt5.QtCore import QPointF
 
 # Import your item classes
-from items import SystemItem
+from ..app.items import SystemItem
 try:
     from items import ConnectableItem, ConnectionPoint, Connection, Property, PhysicalSpace, DomainSpace
 except Exception:

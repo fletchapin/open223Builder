@@ -23,11 +23,12 @@ from open223Builder.library import (
     port_library, svg_library, medium_library, connection_library, PYPES_S223_MAPPING,
     InletConnectionPoint, OutletConnectionPoint, BidirectionalConnectionPoint,
     FluidWater, WaterHotWater, FluidAir, WaterChilledWater,
-    Duct, Conductor, Pipe,
+    Duct, Conductor,
 )
 
 from open223Builder.app.commands import *
 
+from pype_schema import connection, tag
 
 def push_command_to_scene(scene, command: 'Command'):
     if hasattr(scene, 'command_history'):
@@ -1384,7 +1385,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
         connection = Connection(
             source=self,
             target=target_point,
-            type_uri=Pipe,
+            type_uri=connection.Pipe,
         )
 
         command = AddConnectionCommand(connection, scene)

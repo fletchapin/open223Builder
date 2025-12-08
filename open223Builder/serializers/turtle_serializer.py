@@ -1,10 +1,10 @@
 from rdflib import Graph, URIRef, Literal, RDF, RDFS, Namespace
 from PyQt5.QtWidgets import QGraphicsScene
-from registry import class_to_id
-from rdf_compat import to_uri, python_class_predicate
+from ..registry import class_to_id
+from ..rdf_compat import to_uri, python_class_predicate
 
 # Import your item classes
-from items import SystemItem
+from ..app.items import SystemItem
 try:
     from items import ConnectableItem, ConnectionPoint, Connection, Property, PhysicalSpace, DomainSpace
 except Exception:
