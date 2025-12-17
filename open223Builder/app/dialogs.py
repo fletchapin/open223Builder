@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QListWidgetItem
 )
 
-from open223Builder.library import medium_library, connection_point_library
+from open223Builder.library import contents_library
 
 import open223Builder.enumerations as enums
 from open223Builder.app.items import *
@@ -36,22 +36,20 @@ class AddPropertyDialog(QDialog):
         for aspect_str in pypes_aspects:
             self.aspect.addItem(aspect_str, userData=aspect_str)
 
-        self.medium = QComboBox()
-        # medium_library is already imported at the top of the file
-        for medium_key in medium_library.keys():
-            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
+        self.contents = QComboBox()
+        # contents_library is already imported at the top of the file
+        for contents_key in contents.keys():
+            self.contents.addItem(to_label(contents_key), userData=str(contents_key))
 
         self.unit = QComboBox()
         self.unit.addItem("Select Unit", userData=None)
         for unit_uri in enums.units:
             self.unit.addItem(to_label(unit_uri), userData=unit_uri)
 
-        self.quantity_kind = QComboBox()
-        self.quantity_kind.addItem("Select Quantity Kind", userData=None)
-        for qk_uri in enums.quantity_kinds: self.quantity_kind.addItem(to_label(qk_uri), userData=qk_uri)
+        self.tag_type = QComboBox()
+        self.tag_type.addItem("Select Tag Type", userData=None)
+        for tt_uri in enums.tag_types: self.tag_type.addItem(to_label(tt_uri), userData=tt_uri)
 
-        self.external_reference = QLineEdit()
-        self.internal_reference = QLineEdit()
         self.value = QLineEdit()
         self.label_edit = QLineEdit()
         self.comment_edit = QLineEdit()
@@ -61,13 +59,11 @@ class AddPropertyDialog(QDialog):
         layout.addRow("Label:", self.label_edit)
         layout.addRow("Comment:", self.comment_edit)
         layout.addRow("Aspect:", self.aspect)
-        layout.addRow("Medium:", self.medium)
+        layout.addRow("Contents Type:", self.contents)
 
-        layout.addRow("QUDT Unit:", self.unit)
-        layout.addRow("QUDT Quantity Kind:", self.quantity_kind)
+        layout.addRow("Pint Unit:", self.unit)
+        layout.addRow("Tag Type:", self.tag_type)
 
-        layout.addRow("External Reference:", self.external_reference)
-        layout.addRow("Internal Reference:", self.internal_reference)
         layout.addRow("Value:", self.value)
 
         button_box = QHBoxLayout()
@@ -90,12 +86,8 @@ class AddPropertyDialog(QDialog):
         # Retrieve the selected aspect string
         selected_aspect_str = self.aspect.currentData()
 
-        # Retrieve the selected medium S223 URI string
-        selected_medium_s223_uri_str = self.medium.currentData()
-        # Convert it back to URIRef to find the PyPES class
-        s223_medium_uri = rdflib.URIRef(selected_medium_s223_uri_str) if selected_medium_s223_uri_str else None
-        pypes_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
-
+        # Retrieve the selected ContentsType enum
+        selected_contents_type = self.contents.currentData()
 
         return {
             'property_type': pypes_property_type,
@@ -105,11 +97,9 @@ class AddPropertyDialog(QDialog):
             'label': self.label_edit.text(),
             'comment': self.comment_edit.text(),
             'aspect': selected_aspect_str,
-            'medium': pypes_medium,
-            'unit': self.unit.currentData(), # Already URIRef
-            'quantity_kind': self.quantity_kind.currentData(), # Already URIRef
-            'external_reference': self.external_reference.text(),
-            'internal_reference': self.internal_reference.text(),
+            'contents': selected_contents_type,
+            'unit': self.unit.currentData(),
+            'tag_type': self.tag_type.currentData(),
             'value': self.value.text()
         }
 
@@ -135,17 +125,17 @@ class AddConnectionPointDialog(QDialog):
         self.position_y.setValue(0.5)
         self.position_y.setDecimals(2)
 
-        self.medium = QComboBox()
-        for cls, label in medium_library.items():
-            self.medium.addItem(label, userData=cls)
+        self.contents = QComboBox()
+        for cls, label in contents_library.items():
+            self.contents.addItem(label, userData=cls)
 
         self.type_uri = QComboBox()
-        for cls, label in connection_point_library.items():
+        for cls, label in connection_library.items():
             self.type_uri.addItem(label, userData=cls)
 
         layout.addRow("Relative X Position (0-1):", self.position_x)
         layout.addRow("Relative Y Position (0-1):", self.position_y)
-        layout.addRow("Medium:", self.medium)
+        layout.addRow("Contents:", self.contents)
         layout.addRow("Connection Type:", self.type_uri)
 
         button_box = QHBoxLayout()
@@ -161,11 +151,8 @@ class AddConnectionPointDialog(QDialog):
         self.setLayout(layout)
 
     def get_connection_point_data(self):
-        # Retrieve the selected medium S223 URI string
-        selected_medium_s223_uri_str = self.medium.currentData()
-        # Convert it back to URIRef to find the PyPES class
-        s223_medium_uri = rdflib.URIRef(selected_medium_s223_uri_str) if selected_medium_s223_uri_str else None
-        pypes_medium = PYPES_S223_MAPPING.get(s223_medium_uri, None)
+        # Retrieve the selected ContentsType enum
+        selected_contents_type = self.contents.currentData()
 
         # Retrieve the selected connection point type S223 URI string
         selected_type_uri_s223_uri_str = self.type_uri.currentData()
@@ -176,7 +163,7 @@ class AddConnectionPointDialog(QDialog):
         return {
             'position_x': self.position_x.value(),
             'position_y': self.position_y.value(),
-            'medium': pypes_medium,
+            'contents': selected_contents_type,
             'type_uri': pypes_type_uri
         }
 

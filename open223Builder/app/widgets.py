@@ -276,7 +276,7 @@ class ConnectableProperties(BasePropertyPanel):
             cp = ConnectionPoint(
                 connectable=connectable,
                 position=(data['position_x'], data['position_y']),
-                medium=data['medium'],
+                contents=data['contents'],
                 type_uri=data['type_uri']
             )
 

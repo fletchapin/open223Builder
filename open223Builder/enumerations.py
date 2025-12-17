@@ -1,117 +1,83 @@
+import pint
 from typing import List
-from rdflib import URIRef
-from open223Builder.ontology.namespaces import QUDT, QUDTQK, QUDTU
-# Removed S223 import. PyPES does not use URIRefs for its core vocabulary.
-
+from pype_schema.units import u
 
 __all__ = [
-    # "domains", # Removed S223-dependent lists for now
-    # "roles",
-    # "aspects",
     "units",
-    "quantity_kinds",
+    "tag_types",
 ]
 
-
-# The following lists were based on S223 and need to be redefined using PyPES concepts.
-# PyPES defines components and their properties as Python classes and attributes,
-# not as URIRefs like S223. Domains, roles, and aspects will likely be represented
-# as instances of pype_schema.tag.Tag on Node or Connection objects.
-
-# domains: List[URIRef] = [
-#     # S223['Domain-Lighting'],
-#     # S223['Domain-Electrical'],
-#     # S223['Domain-HVAC'],
-#     # S223['Domain-Occupancy'],
-#     # S223['Domain-Plumbing'],
-#     # S223['Domain-Refrigeration'],
-#     # S223['Domain-Electrical'],
-#     # S223['Domain-FireProtection'],
-#     # S223['Domain-Plumbing'],
-# ]
-
-# roles: List[URIRef] = [
-#     # S223['Role-Condenser'],
-#     # S223['Role-Cooling'],
-#     # S223['Role-Dehumidifying'],
-#     # S223['Role-Discharge'],
-#     # S223['Role-Economizer'],
-#     # S223['Role-Evaporator'],
-#     # S223['Role-Exhaust'],
-#     # S223['Role-Expansion'],
-#     # S223['Role-Generator'],
-#     # S223['Role-Heating'],
-#     # S223['Role-HeatRecovery'],
-#     # S223['Role-HeatTransfer'],
-#     # S223['Role-Load'],
-#     # S223['Role-OutdoorAirIntake'],
-#     # S223['Role-Primary'],
-#     # S223['Role-Recirculating'],
-#     # S223['Role-Relief'],
-#     # S223['Role-Return'],
-#     # S223['Role-Secondary'],
-#     # S223['Role-Supply'],
-# ]
-
-# aspects: List[URIRef] = [
-#     # S223['s223.Aspect-Alarm'],
-#     # S223['s223.Aspect-CatalogNumber'],
-#     # S223['s223.Aspect-Deadband'],
-#     # S223['s223.Aspect-Delta'],
-#     # S223['s223.Aspect-Fault'],
-#     # S223['s223.Aspect-HighLimit'],
-#     # S223['s223.Aspect-LowLimit'],
-#     # S223['s223.Aspect-Manufacturer'],
-#     # S223['s223.Aspect-Maximum'],
-#     # S223['s223.Aspect-Minimum'],
-#     # S223['s223.Aspect-Model'],
-#     # S223['s223.Aspect-Nominal'],
-#     # S223['s223.Aspect-OperatingMode'],
-#     # S223['s223.Aspect-OperatingStatus'],
-#     # S223['s223.Aspect-Rated'],
-#     # S223['s223.Aspect-SerialNumber'],
-#     # S223['s223.Aspect-Setpoint'],
-#     # S223['s223.Aspect-Threshold'],
-# ]
-
-units: List[URIRef] = [
-    QUDTU.DEG_C,         # Celsius
-    QUDTU.DEG_F,         # Fahrenheit
-    QUDTU.K,             # Kelvin
-    QUDTU.HZ,            # Hertz
-    QUDTU.J,             # Joule
-    QUDTU.KiloW,         # Kilowatt
-    QUDTU.PA,            # Pascal
-    QUDTU.V,             # Volt
-    QUDTU.Percent,       # Percent
-    QUDTU['KiloW-HR'],   # Kilowatt-hour
-    QUDTU.Watt,          # Watt
+units: List[pint.Unit] = [
+    u.degC,                      # Celsius
+    u.degF,                      # Fahrenheit
+    u.degK,                      # Kelvin
+    u.Hz,                        # Hertz
+    u.J,                         # Joule
+    u.BTU,                       # British thermal units
+    u.BTU / (u.ft ** 3),         # BTU / cubic foot
+    u.kWh / u.ft**3 * u.min,     # killowatt-hour per cubic foot per minute
+    u.kWh / (u.m ** 3),          # killowatt-hour per cubic meter
+    u.mol,                       # mole
+    u.kW,                        # Kilowatt
+    u.Pa,                        # Pascal
+    u.force_pound / (u.inch**2), # pounds per square inch
+    u.V,                         # Volt
+    u.kWh,                       # Kilowatt-hour
+    u.W,                         # Watt
+    u.m,                         # meter
+    u.inch,                      # inch
+    u.LMH,                       # liter squared per square meter per hour
+    u.LMH / u.bar,               # LMH / bar
+    u.W / (u.m ** 2),            # Watt per square meter
+    u.m ** 3,                    # cubic meter
+    u.ft ** 3,                   # cubic feet
+    u.L,                         # liter
+    u.gal,                       # gallon
+    u.s,                         # second
+    u.min,                       # minute
+    u.hr,                        # hour
+    u.day,                       # day
+    u.MGD,                       # million gallons per day
+    u.gal / u.min,               # gallons per minute
+    u.gal / u.day,               # gallons per day
+    u.hp,                        # horsepower
+    u.ft ** 3 / u.min,           # cubic feet per minute
+    u.m ** 3 / u.day,            # cubic meters per day
+    u.m ** 3 / u.hr,             # cubic meters per hour
+    u.mg / u.L,                  # milligram per liter
+    u.g,                         # gram
+    u.m / u.s,                   # meter per second
+    u.dimensionless,             # dimensionless
 ]
 
-quantity_kinds: List[URIRef] = [
-
-    QUDTQK.Time,
-    QUDTQK.Temperature,
-    QUDTQK.RelativeHumidity,
-    QUDTQK.Illuminance,
-    QUDTQK.Frequency,
-    QUDTQK.Speed,
-    QUDTQK.OpeningRatio,
-
-    QUDTQK.VolumeFlowRate,
-    QUDTQK.MassFlowRate,
-    QUDTQK.Pressure,
-
-    QUDTQK.Efficiency,
-    QUDTQK.ThermalConductivity,
-
-    QUDTQK.Power,
-    QUDTQK.Energy,
-    QUDTQK.EnergyPerUnitArea,
-
-    QUDTQK.Length,
-    QUDTQK.Area,
-    QUDTQK.Volume,
+tag_types: List[tag.TagType] = [
+    tagType.Flow,  # flow through a connection
+    tagType.Volume, 
+    tagType.Level,
+    tagType.Pressure,
+    tagType.Temperature,
+    tagType.RunTime,
+    tagType.RunStatus,
+    tagType.VSS,  # volatile suspended solids
+    tagType.TSS,
+    tagType.TDS,
+    tagType.COD,
+    tagType.BOD,
+    tagType.pH,
+    tagType.Conductivity,
+    tagType.Turbidity,
+    tagType.Rotation,
+    tagType.Efficiency,
+    tagType.StateOfCharge,
+    tagType.InFlow,  # flow into a node
+    tagType.OutFlow, # flow out of a node
+    tagType.NetFlow,  # net flow through a node
+    tagType.Speed,
+    tagType.Frequency,
+    tagType.Current,
+    tagType.Voltage,
+    tagType.Concentration,
+    tagType.SetPoint,
 ]
 
 

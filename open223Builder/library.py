@@ -32,13 +32,15 @@ class FluidAir(tag.Tag): pass
 class Duct(connection.Connection): pass  # Duct is a connection
 class Conductor(connection.Connection): pass  # Conductor is a connection
 
-connection_point_library = {
-    InletConnectionPoint: "Inlet",
-    OutletConnectionPoint: "Outlet",
-    BidirectionalConnectionPoint: "Bidirectional",
+connection_library = {
+    Pipe: "Pipe",
+    Wire: "Wire",
+    Wireless: "Wireless",
+    Delivery: "Delivery",
 }
 
-medium_library = {
+# TODO: update contents
+contents_library = {
     FluidWater: "Fluid Water",
     WaterHotWater: "Hot Water",
     WaterChilledWater: "Chilled Water",
@@ -78,7 +80,7 @@ PYPES_S223_MAPPING = {
     S223.OutletConnectionPoint: OutletConnectionPoint, # Placeholder for UI
     S223.BidirectionalConnectionPoint: BidirectionalConnectionPoint, # Placeholder for UI
 
-    # Medium types
+    # Contents types
     S223['Fluid-Water']: FluidWater, # Placeholder for UI
     S223['Water-HotWater']: WaterHotWater, # Placeholder for UI
     S223['Fluid-Air']: FluidAir, # Placeholder for UI
