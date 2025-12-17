@@ -127,7 +127,7 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
             g.add((prop_uri, S223.hasInternalReference, Literal(prop.internal_reference, datatype=rdflib.XSD.string)))
         if prop.value:
             g.add((prop_uri, S223.hasValue, Literal(prop.value, datatype=rdflib.XSD.string))) # Value can be string
-        if prop.medium:
+        if prop.contents:
             # Map PyPES medium class back to S223 URI for serialization
             s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == prop.medium), None)
             if s223_medium:
@@ -136,8 +136,8 @@ def save_to_turtle(scene: QGraphicsScene, filepath: str):
                 g.add((prop_uri, S223.hasMedium, Literal(prop.medium.__name__))) # Fallback to class name
         if prop.unit:
             g.add((prop_uri, QUDT.hasUnit, rdflib.URIRef(prop.unit)))
-        if prop.quantity_kind:
-            g.add((prop_uri, QUDT.hasQuantityKind, rdflib.URIRef(prop.quantity_kind)))
+        if prop.tag_type:
+            g.add((prop_uri, QUDT.hasQuantityKind, rdflib.URIRef(prop.tag_type)))
 
         processed_uris.add(prop_uri)
 
@@ -1195,7 +1195,6 @@ class Canvas(QGraphicsView):
                 item = DomainSpace()
             else:
                 item = ConnectableItem(type_uri=type_uri)
-                item.load_default_connection_points()
 
             command = AddItemCommand(self.scene, item)
             self.command_history.push(command)

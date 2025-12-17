@@ -20,7 +20,7 @@ from open223Builder.ontology.namespaces import (
 )
 
 from open223Builder.library import (
-    port_library, svg_library, medium_library, connection_library, PYPES_S223_MAPPING,
+    svg_library, contents_library, connection_library, PYPES_S223_MAPPING,
     InletConnectionPoint, OutletConnectionPoint, BidirectionalConnectionPoint,
     FluidWater, WaterHotWater, FluidAir, WaterChilledWater,
     Duct, Conductor,
@@ -788,22 +788,6 @@ class ConnectableItem(QGraphicsSvgItem):
 
             painter.drawText(rect, Qt.AlignCenter, self.label or to_label(self.type_uri))
 
-    def load_default_connection_points(self):
-        print('Loading default connection points for', self.inst_uri)
-
-        ports_data = port_library.get(self.type_uri, [])
-
-        for cp in list(self.connection_points):
-            self.remove_connection_point(cp)
-
-        for port_config in ports_data:
-            try:
-
-                ConnectionPoint(connectable=self, **port_config)
-
-            except Exception as e:
-                print(f"Error creating connection point for {self.inst_uri}: {e} with config {port_config}")
-
     def add_property(self, property_item: Property):
         """Add a property to this component."""
 
@@ -1155,7 +1139,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
     def __init__(
             self,
             connectable: ConnectableItem,
-            medium: type, # Changed type hint
+            contents: type, # Changed type hint
             type_uri: type, # Changed type hint
             inst_uri: rdflib.URIRef = None,
             position: tuple = (0.5, 0.5),
@@ -1184,7 +1168,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
         self.setPen(QPen(Qt.black, 1))
         self.setBrush(QBrush(Qt.gray))
         self.setZValue(4)
-        self.medium = medium
+        self.contents = contents
         self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsScenePositionChanges)
         self.setAcceptHoverEvents(True)
         self.setAcceptedMouseButtons(Qt.LeftButton)
@@ -1194,7 +1178,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
         connectable.add_connection_point(connection_point=self)
 
     def __str__(self):
-        return f"{self.__class__.__name__}(medium={self.medium}, pos_x={self.pos_x}, pos_y={self.pos_y})"
+        return f"{self.__class__.__name__}(medium={self.contents}, pos_x={self.pos_x}, pos_y={self.pos_y})"
 
     @property
     def type_uri(self):
@@ -1245,12 +1229,12 @@ class ConnectionPoint(QGraphicsEllipseItem):
 
     def update_appearance(self):
         # Retrieve the S223 medium from the PYPES_S223_MAPPING
-        s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.medium), None)
+        s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.contents), None)
         try:
-            # Use the S223 medium to get the color from medium_library
-            color = medium_library[s223_medium].get('color', None)
+            # Use the S223 medium to get the color from contents_library
+            color = contents_library[s223_medium].get('color', None)
         except KeyError:
-            print(f'Did not find medium {self.medium} in medium_library')
+            print(f'Did not find medium {self.contents} in contents_library')
             color = (200, 200, 200)
         medium_color = QColor(*color)
         self.setBrush(QBrush(medium_color))
@@ -1358,7 +1342,7 @@ class ConnectionPoint(QGraphicsEllipseItem):
         return None
 
     def _connection_is_possible(self, target_point):
-        if target_point.medium != self.medium:
+        if target_point.contents != self.contents:
             return
 
         # Use the placeholder classes for comparison
@@ -1460,10 +1444,10 @@ class Connection(QGraphicsPathItem):
         # Retrieve the S223 medium from the PYPES_S223_MAPPING
         s223_medium = next((k for k, v in PYPES_S223_MAPPING.items() if v == self.source.medium), None)
         try:
-            # Use the S223 medium to get the color from medium_library
-            color = medium_library[s223_medium].get('color', None)
+            # Use the S223 medium to get the color from contents_library
+            color = contents_library[s223_medium].get('color', None)
         except KeyError:
-            print(f'Did not find medium {self.source.medium} in medium_library')
+            print(f'Did not find medium {self.source.medium} in contents_library')
             color = (200, 200, 200)
         if width is None:
             # Retrieve the S223 type_uri from the PYPES_S223_MAPPING

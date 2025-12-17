@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
 )
 
 import open223Builder.enumerations as enums
-from open223Builder.library import connection_point_library, PYPES_S223_MAPPING, medium_library
+from open223Builder.library import PYPES_S223_MAPPING, contents_library
 from open223Builder.app.dialogs import RelationshipDialog, AddPropertyDialog, AddConnectionPointDialog
 from open223Builder.app.items import *
 from open223Builder.ontology.namespaces import PYPES, to_label
@@ -333,10 +333,10 @@ class PropertyProperties(BasePropertyPanel):
 
         self.medium = QComboBox()
         self.medium.addItem("Select medium", userData=None)
-        # Iterate over medium_library keys (S223 URIRefs) and use their mapped PyPES names
+        # Iterate over contents_library keys (S223 URIRefs) and use their mapped PyPES names
         # The userData will be the S223 URIRef string, so we can map it back in on_medium_changed
-        for medium_key in medium_library.keys():
-            self.medium.addItem(to_label(medium_key), userData=str(medium_key))
+        for contents_key in contents_library.keys():
+            self.medium.addItem(to_label(contents_key), userData=str(contents_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>Medium:</b>"), self.medium)
 
@@ -706,7 +706,7 @@ class ConnectionProperties(BasePropertyPanel):
         self.addRow(QLabel("<b>rdfs.type:</b>"), self.type_uri)
 
         self.medium = QComboBox()
-        for medium_key in medium_library.keys(): # Iterate keys
+        for medium_key in contents_library.keys(): # Iterate keys
             self.medium.addItem(to_label(medium_key), userData=str(medium_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>s223.hasMedium:</b>"), self.medium)
@@ -810,7 +810,7 @@ class ConnectionPointProperties(BasePropertyPanel):
         self.addRow(QLabel("<b>s223.connectsThrough:</b>"), self.connected_to)
 
         self.medium = QComboBox()
-        for medium_key in medium_library.keys():
+        for medium_key in contents_library.keys():
             self.medium.addItem(to_label(medium_key), userData=str(medium_key))
         self.medium.currentIndexChanged.connect(self.on_medium_changed)
         self.addRow(QLabel("<b>s223.hasMedium:</b>"), self.medium)

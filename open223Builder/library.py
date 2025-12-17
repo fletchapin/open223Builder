@@ -1,7 +1,20 @@
-from pype_schema import tag, node, connection
-
-from open223Builder.ontology.namespaces import S223, VISU, BLDG, QUDT, QUDTQK, QUDTU, PYPES
+from open223Builder.ontology.namespaces import S223
 from pype_schema import node, connection, tag, utils
+from pype_schema.visualize import color_map
+
+COLOR_NAME_TO_RGB = {
+    'yellow': (255, 255, 0),
+    'saddlebrown': (139, 69, 19),
+    'green': (0, 128, 0),
+    'black': (0, 0, 0),
+    'red': (255, 0, 0),
+    'gray': (128, 128, 128),
+    'aqua': (0, 255, 255),
+    'cornflowerblue': (100, 149, 237),
+    'purple': (128, 0, 128),
+    'blue': (0, 0, 255),
+    'orange': (255, 165, 0),
+}
 
 # --- PyPES-first registries and placeholder classes (injected by apply_pypes_patch.py) ---
 # Placeholder classes for S223 terms that don't have direct PyPES equivalents
@@ -19,34 +32,63 @@ class Coil(node.Node): pass
 class DomainSpace(node.Node): pass   # DomainSpace will be a node for now
 class PhysicalSpace(node.Node): pass  # PhysicalSpace will be a node for now
 
-class InletConnectionPoint(tag.Tag): pass
-class OutletConnectionPoint(tag.Tag): pass
-class BidirectionalConnectionPoint(tag.Tag): pass
-
-class FluidWater(tag.Tag): pass
-class WaterHotWater(tag.Tag): pass
-class WaterChilledWater(tag.Tag): pass
-class FluidAir(tag.Tag): pass
-
 # For connection types, we will use pype_schema.connection classes
 class Duct(connection.Connection): pass  # Duct is a connection
-class Conductor(connection.Connection): pass  # Conductor is a connection
-
-connection_library = {
-    Pipe: "Pipe",
-    Wire: "Wire",
-    Wireless: "Wireless",
-    Delivery: "Delivery",
-}
-
-# TODO: update contents
-contents_library = {
-    FluidWater: "Fluid Water",
-    WaterHotWater: "Hot Water",
-    WaterChilledWater: "Chilled Water",
-    FluidAir: "Air",
-}
 # --- end injected block ---
+
+# ContentsType enum from utils.py
+contents_str_mapping = {
+    ContentsType.UntreatedSewage: "Untreated Sewage",
+    ContentsType.PrimaryEffluent: "Primary Effluent",
+    ContentsType.SecondaryEffluent: "Secondary Effluent",
+    ContentsType.TertiaryEffluent: "Tertiary Effluent",
+    ContentsType.TreatedSewage: "Treated Sewage",
+    ContentsType.DrinkingWater: "Drinking Water",
+    ContentsType.PotableReuse: "Potable Reuse",
+    ContentsType.NonpotableReuse: "Nonpotable Reuse",
+    ContentsType.Biogas: "Biogas",
+    ContentsType.NaturalGas: "Natural Gas",
+    ContentsType.GasBlend: "Gas Blend",
+    ContentsType.FatOilGrease: "Fat Oil Grease",
+    ContentsType.PrimarySludge: "Primary Sludge",
+    ContentsType.TPS: "Thickened Primary Sludge",
+    ContentsType.WasteActivatedSludge: "Waste Activated Sludge",
+    ContentsType.TWAS: "Thickened Waste Activated Sludge",
+    ContentsType.Scum: "Scum",
+    ContentsType.FoodWaste: "Food Waste",
+    ContentsType.SludgeBlend: "Sludge Blend",
+    ContentsType.ThickenedSludgeBlend: "Thickened Sludge Blend",
+    ContentsType.Electricity: "Electricity",
+    ContentsType.Brine: "Brine",
+    ContentsType.Seawater: "Seawater",
+    ContentsType.SurfaceWater: "Surface Water",
+    ContentsType.Groundwater: "Groundwater",
+    ContentsType.Stormwater: "Stormwater",
+    ContentsType.Heat: "Heat",
+    ContentsType.Oil: "Oil",
+    ContentsType.Grease: "Grease",
+    ContentsType.Air: "Air",
+    ContentsType.Oxygen: "Oxygen",
+    ContentsType.IdealGas: "Ideal Gas",
+    ContentsType.Chemical: "Chemical",
+    ContentsType.Coagulant: "Coagulant",
+    ContentsType.Disinfectant: "Disinfectant",
+    ContentsType.Deodorant: "Deodorant",
+    ContentsType.IndustrialWastewater: "Industrial Wastewater",
+    ContentsType.MunicipalWastewater: "Municipal Wastewater",
+    ContentsType.DisinfectedEffluent: "Disinfected Effluent",
+    ContentsType.SolidWaste: "Solid Waste",
+    ContentsType.PretreatedWater: "Pretreated Water",
+    ContentsType.ProductWater: "Product Water",
+    ContentsType.ChlorinatedSeawater: "Chlorinated Seawater",
+    ContentsType.CoagulatedWater: "Coagulated Water",
+    ContentsType.FilterBackwash: "Filter Backwash",
+    ContentsType.Filtrate: "Filtrate",
+    ContentsType.WFBS: "Water Filter Backwash Solids",
+    ContentsType.ControlSignal: "Control Signal",
+    ContentsType.DataTransfer: "Data Transfer",
+    ContentsType.Antiscalant: "Antiscalant",
+}
 
 PYPES_S223_MAPPING = {
     S223.Junction: node.Junction,
@@ -65,26 +107,11 @@ PYPES_S223_MAPPING = {
     S223.TerminalUnit: TerminalUnit, # Placeholder
     S223.SingleDuctTerminal: SingleDuctTerminal, # Placeholder
     S223.AirHandlingUnit: AirHandlingUnit, # Placeholder
-    S223.TemperatureSensor: tag.Tag, # Represent sensors as Tags
-    S223.PressureSensor: tag.Tag,
-    S223.OccupancySensor: tag.Tag,
-    S223.FlowSensor: tag.Tag,
-    S223.HumiditySensor: tag.Tag,
-    S223.HeatPump: HeatPump, # Placeholder
-    S223.Coil: Coil, # Placeholder
-    S223.DomainSpace: DomainSpace, # Placeholder
-    S223.PhysicalSpace: PhysicalSpace, # Placeholder
-
-    # Connection points
-    S223.InletConnectionPoint: InletConnectionPoint, # Placeholder for UI
-    S223.OutletConnectionPoint: OutletConnectionPoint, # Placeholder for UI
-    S223.BidirectionalConnectionPoint: BidirectionalConnectionPoint, # Placeholder for UI
-
-    # Contents types
-    S223['Fluid-Water']: FluidWater, # Placeholder for UI
-    S223['Water-HotWater']: WaterHotWater, # Placeholder for UI
-    S223['Fluid-Air']: FluidAir, # Placeholder for UI
-    S223['Water-ChilledWater']: WaterChilledWater, # Placeholder for UI
+    S223.TemperatureSensor: tag.Tag, # Represent sensors as generic Tags
+    S223.PressureSensor: tag.Tag,  # Represent sensors as generic Tags
+    S223.OccupancySensor: tag.Tag,  # Represent sensors as generic Tags
+    S223.FlowSensor: tag.Tag,  # Represent sensors as generic Tags
+    S223.HumiditySensor: tag.Tag,  # Represent sensors as generic Tags
 
     # Connection types
     S223.Connection: connection.Connection,
@@ -480,144 +507,42 @@ connectable_library = {
     'PhysicalSpace': S223.PhysicalSpace,
 }
 
-port_library = {
-    S223.Boiler: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.3, 1)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Water-HotWater'], 'position': (0.7, 1)},
-    ],
-    S223.Equipment: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-    ],
-    S223.TwoWayValve: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-    ],
-    S223.Junction: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.5, 1)},
-    ],
-    S223.TemperatureSensor: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-    ],
-    S223.ThreeWayValve: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.5, 1)},
-    ],
-    S223.Pump: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-    ],
-    S223.Radiator: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Water-HotWater'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (1, 0.5)},
-    ],
-    S223.Fan: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-    ],
-    S223.Coil: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Water-HotWater'], 'position': (0.3, 1)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.7, 1)},
-    ],
-    S223.HeatingCoil: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Water-HotWater'], 'position': (0.3, 1)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.7, 1)},
-    ],
-    S223.CoolingCoil: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Water-ChilledWater'], 'position': (0.3, 1)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Water'], 'position': (0.7, 1)},
-    ],
-    S223.AirHeatExchanger: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.7)},
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.3)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.3)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.7)},
-    ],
-    S223.Damper: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-    ],
-    S223.Filter: [
-        {'type_uri': S223.InletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (0, 0.5)},
-        {'type_uri': S223.OutletConnectionPoint, 'medium': S223['Fluid-Air'], 'position': (1, 0.5)},
-    ],
-}
-
-connection_point_library: dict = {
-    S223.InletConnectionPoint: {},
-    S223.OutletConnectionPoint: {},
-    S223.BidirectionalConnectionPoint: {},
-}
-
 connection_library: dict = {
-    S223.Connection: {
-        'width': 5,
+    connection.Pipe: {
+        "width": 5,
     },
-    S223.Pipe: {
-        'width': 5,
+    connection.Wire: {
+        "width": 2,
     },
-    S223.Duct: {
-        'width': 8,
+    connection.Wireless: {
+        "width": 2,
     },
-    S223.Conductor: {
-        'width': 2,
-    },
-}
-
-medium_library = {
-    None: {
-        'color': (200, 200, 200),
-        'size': 5,
-        'width': 2,
-    },
-    S223['Fluid-Water']: {
-        'color': (37, 150, 190),
-        'size': 5,
-        'width': 2,
-        'connection_type': S223.Pipe,
-    },
-    S223['Fluid-Air']: {
-        'color': (171, 219, 227),
-        'size': 5,
-        'width': 2,
-        'connection_type': S223.Pipe,
-    },
-    S223['Water-ChilledWater']: {
-        'color': (65, 66, 229),
-        'size': 5,
-        'width': 2,
-        'connection_type': S223.Pipe,
-    },
-    S223['Water-HotWater']: {
-        'color': (215, 69, 66),
-        'size': 5,
-        'width': 2,
-        'connection_type': S223.Pipe,
+    Duct: {
+        "width": 8,
     },
 }
 
-qudt_units = {
-    "Degree Celsius": QUDTU.DEG_C,
-    "Percent": QUDTU.PERCENT,
-    "Pascal": QUDTU.PA,
-    "Watt": QUDTU.W,
-    # Add more
-}
+def _color_name_for_key_and_label(key, label, color_map=VIS_COLOR_MAP):
+    if utils.ContentsType is not None and isinstance(key, ContentsType):
+        lookup_name = key.name
+    else:
+        # For non-enum placeholders (e.g., FluidWater), try label without spaces
+        lookup_name = (label or "").replace(" ", "")
 
-qudt_quantity_kinds = {
-    "Temperature": QUDTQK.Temperature,
-    "Relative Humidity": QUDTQK.RelativeHumidity,
-    "Pressure": QUDTQK.Pressure,
-    "Power": QUDTQK.Power,
-    # Add more
+    entry = VIS_COLOR_MAP.get(lookup_name)
+    return entry[0] if entry else None  # edge color
+
+
+def _rgb_from_color_name(name):
+    if not name:
+        return (0, 0, 0)
+    return COLOR_NAME_TO_RGB.get(name.lower(), (0, 0, 0))
+
+contents_library = {
+    key: {
+        'color': _rgb_from_color_name(_color_name_for_key_and_label(key, label)),
+        'size': 5,
+        'width': 2,
+    }
+    for key, label in contents_str_mapping.items()
 }
